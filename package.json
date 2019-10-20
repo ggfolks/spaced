@@ -1,12 +1,12 @@
 {
-  "name": "tfw-platform-sceneeditor",
+  "name": "tfw-platform-scened",
   "version": "1.0.0",
   "description": "Scene editor for the tfw multiplayer game platform",
   "author": "tfw, inc. (https://tfw.dev)",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tfwdev/sceneeditor.git"
+    "url": "https://github.com/tfwdev/scened.git"
   },
   "sideEffects": false,
   "scripts": {
