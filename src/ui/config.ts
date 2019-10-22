@@ -1,7 +1,77 @@
+import {Value} from "tfw/core/react"
 import {Scale} from "tfw/core/ui"
 import {windowSize} from "tfw/scene2/gl"
 import {RootConfig} from "tfw/ui/element"
 import {createMenuItemConfig} from "tfw/ui/menu"
+
+const MenuBarConfig = {
+  type: "menubar",
+  offPolicy: "stretch",
+  element: {
+    type: "menu",
+    contents: {
+      type: "box",
+      contents: {type: "label", text: "title"},
+    },
+    // max category depth of two for the moment
+    element: createMenuItemConfig(2),
+    keys: "keys",
+    data: "data",
+    shortcutKeys: "shortcutKeys",
+    shortcutData: "shortcutData",
+  },
+  keys: "menubarKeys",
+  data: "menubarData",
+}
+
+const TabbedPaneConfig = {
+  type: "tabbedpane",
+  tabElement: {
+    type: "box",
+    contents: {
+      type: "row",
+      contents: [
+        {
+          type: "editablelabel",
+          text: "title",
+          contents: {
+            type: "box",
+            contents: {type: "label", overrideParentState: "normal", scopeId: "tab"},
+          },
+        },
+        {
+          type: "button",
+          visible: "removable",
+          contents: {
+            type: "box",
+            scopeId: "removeTabButton",
+            contents: {type: "label", text: Value.constant("×")},
+          },
+          onClick: "remove",
+        },
+      ],
+    }
+  },
+  contentElement: {
+    type: "spacer",
+    constraints: {stretch: true},
+  },
+  addTabElement: {
+    type: "button",
+    contents: {
+      type: "box",
+      scopeId: "addTabButton",
+      contents: {type: "label", text: Value.constant("🞣")},
+    },
+    onClick: "createPage",
+  },
+  keys: "pageKeys",
+  data: "pageData",
+  key: "id",
+  activeKey: "activePage",
+  updateOrder: "updateOrder",
+  constraints: {stretch: true},
+}
 
 export const UIConfig :RootConfig = {
   type: "root",
@@ -21,25 +91,7 @@ export const UIConfig :RootConfig = {
           scopeId: "default",
           offPolicy: "stretch",
           contents: [
-            {
-              type: "menubar",
-              offPolicy: "stretch",
-              element: {
-                type: "menu",
-                contents: {
-                  type: "box",
-                  contents: {type: "label", text: "title"},
-                },
-                // max category depth of two for the moment
-                element: createMenuItemConfig(2),
-                keys: "keys",
-                data: "data",
-                shortcutKeys: "shortcutKeys",
-                shortcutData: "shortcutData",
-              },
-              keys: "menubarKeys",
-              data: "menubarData",
-            },
+            MenuBarConfig,
             {
               type: "spacer",
               width: 10,
@@ -47,6 +99,30 @@ export const UIConfig :RootConfig = {
             },
           ],
         },
+      },
+      {
+        type: "row",
+        offPolicy: "stretch",
+        constraints: {stretch: true},
+        contents: [
+          {
+            type: "box",
+            scopeId: "pageHeader",
+            contents: {
+              type: "spacer",
+              width: 100,
+            },
+          },
+          TabbedPaneConfig,
+          {
+            type: "box",
+            scopeId: "pageHeader",
+            contents: {
+              type: "spacer",
+              width: 100,
+            },
+          },
+        ],
       },
     ],
   },
