@@ -9,7 +9,7 @@ import {HTMLHost} from "tfw/ui/element"
 import {UI} from "tfw/ui/ui"
 
 import {UIConfig} from "./ui/config"
-import {UIModel} from "./ui/model"
+import {createUIModel} from "./ui/model"
 import {UIStyles, UITheme} from "./ui/theme"
 
 const root = document.getElementById("root")
@@ -33,6 +33,6 @@ disposer.add(host.bind(gameEngine.renderEngine.domElement))
 disposer.add(loop.clock.onEmit(clock => host.update(clock)))
 
 const ui = new UI(UITheme, UIStyles, {resolve: loadImage})
-const uiRoot = ui.createRoot(UIConfig, UIModel)
+const uiRoot = ui.createRoot(UIConfig, createUIModel(gameEngine))
 disposer.add(uiRoot.bindOrigin(windowSize(window), "center", "center", "center", "center"))
 host.addRoot(uiRoot)
