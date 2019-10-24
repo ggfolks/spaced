@@ -11,7 +11,7 @@ const MenuBarConfig = {
     type: "menu",
     contents: {
       type: "box",
-      contents: {type: "label", text: "title"},
+      contents: {type: "label", text: "name"},
     },
     // max category depth of two for the moment
     element: createMenuItemConfig(2),
@@ -33,7 +33,7 @@ const TabbedPaneConfig = {
       contents: [
         {
           type: "editablelabel",
-          text: "title",
+          text: "name",
           contents: {
             type: "box",
             contents: {type: "label", overrideParentState: "normal", scopeId: "tab"},
@@ -109,8 +109,19 @@ export const UIConfig :RootConfig = {
             type: "box",
             scopeId: "pageHeader",
             contents: {
-              type: "spacer",
-              width: 100,
+              type: "treeview",
+              element: {
+                type: "editablelabel",
+                text: "name",
+                contents: {
+                  type: "box",
+                  contents: {type: "label", overrideParentState: "normal", scopeId: "treeviewnode"},
+                },
+              },
+              keys: "rootKeys",
+              data: "rootData",
+              selectedKeys: "selectedKeys",
+              updateParentOrder: "updateParentOrder",
             },
           },
           TabbedPaneConfig,

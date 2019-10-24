@@ -14,6 +14,7 @@ export interface GameObjectEdit {
   editNumber? :number
   activePage? :string
   selection? :Set<string>
+  expanded? :Set<string>
   add? :SpaceConfig
   edit? :SpaceEditConfig
   remove? :Set<string>
@@ -22,6 +23,7 @@ export interface GameObjectEdit {
 interface FullGameObjectEdit extends GameObjectEdit {
   activePage :string
   selection :Set<string>
+  expanded :Set<string>
   add :SpaceConfig
   edit :SpaceEditConfig
   remove :Set<string>
@@ -35,14 +37,7 @@ export function createUIModel (gameEngine :GameEngine) {
   const models = new Map<ModelKey, Model>()
   const pageEditor = createGameObjectEditor(gameEngine, models)
   const selection = MutableSet.local<string>()
-  const setSelection = (newSelection :Set<string>) => {
-    // remove anything not in the new selection
-    for (const id of selection) {
-      if (!newSelection.has(id)) selection.delete(id)
-    }
-    // add anything not in the old selection
-    for (const id of newSelection) selection.add(id)
-  }
+  const expanded = MutableSet.local<string>()
   const canUndo = Mutable.local(false)
   const canRedo = Mutable.local(false)
   const undoStack :FullGameObjectEdit[] = []
@@ -50,9 +45,11 @@ export function createUIModel (gameEngine :GameEngine) {
   const applyEdit = (edit :GameObjectEdit) => {
     const oldActivePage = gameEngine.activePage.current
     const oldSelection = new Set(selection)
+    const oldExpanded = new Set(expanded)
     const reverseEdit = pageEditor(edit)
     if (edit.activePage) gameEngine.activePage.update(edit.activePage)
-    if (edit.selection) setSelection(edit.selection)
+    if (edit.selection) setIdSet(selection, edit.selection)
+    if (edit.expanded) setIdSet(expanded, edit.expanded)
     const lastEdit = undoStack[undoStack.length - 1]
     const currentEditNumber = getCurrentEditNumber()
     if (lastEdit && lastEdit.editNumber === currentEditNumber) {
@@ -89,19 +86,55 @@ export function createUIModel (gameEngine :GameEngine) {
       reverseEdit.editNumber = currentEditNumber
       reverseEdit.activePage = oldActivePage
       reverseEdit.selection = oldSelection
+      reverseEdit.expanded = oldExpanded
       undoStack.push(reverseEdit)
     }
     redoStack.length = 0
     canUndo.update(true)
     canRedo.update(false)
   }
+  const modelData = {
+    resolve: (key :ModelKey) => {
+      let model = models.get(key)
+      if (!model) {
+        const gameObject = gameEngine.gameObjects.require(key as string)
+        const createPropertyValue = createPropertyValueCreator(gameObject, applyEdit)
+        models.set(key, model = new Model({
+          id: Value.constant(key),
+          name: createPropertyValue("name"),
+          childKeys: gameObject.transform.childIds,
+          childData: modelData,
+          expanded: expanded.hasValue(key as string),
+          toggleExpanded: () => {
+            if (expanded.has(key as string)) expanded.delete(key as string)
+            else expanded.add(key as string)
+          },
+        }))
+      }
+      return model
+    },
+  }
   return new Model({
-    menubarKeys: Value.constant(["space"]),
+    menubarKeys: Value.constant(["object"]),
     menubarData: dataProvider({
-      space: {
-        title: Value.constant("Space"),
-        keys: Value.constant([]),
-        data: dataProvider({}),
+      object: {
+        name: Value.constant("Object"),
+        keys: Value.constant(["new"]),
+        data: dataProvider({
+          new: {
+            name: Value.constant("New"),
+            submenu: Value.constant(true),
+            keys: Value.constant(["empty"]),
+            data: dataProvider({
+              empty: {
+                name: Value.constant("Empty"),
+                action: () => {
+                  applyEdit({add: {empty: {}}})
+                },
+              },
+            }),
+          },
+        }),
       },
     }),
     pageKeys: gameEngine.pages,
@@ -112,7 +145,7 @@ export function createUIModel (gameEngine :GameEngine) {
           if (key === DEFAULT_PAGE) {
             models.set(key, model = new Model({
               id: Value.constant(DEFAULT_PAGE),
-              title: Value.constant(DEFAULT_PAGE),
+              name: Value.constant(DEFAULT_PAGE),
               removable: Value.constant(false),
               remove: Noop,
             }))
@@ -121,7 +154,7 @@ export function createUIModel (gameEngine :GameEngine) {
             const createPropertyValue = createPropertyValueCreator(gameObject, applyEdit)
             models.set(key, model = new Model({
               id: Value.constant(key),
-              title: createPropertyValue("name"),
+              name: createPropertyValue("name"),
               removable: Value.constant(true),
               remove: () => applyEdit({remove: new Set([gameObject.id])}),
             }))
@@ -179,21 +212,20 @@ export function createUIModel (gameEngine :GameEngine) {
       applyEdit(edit)
     },
     rootKeys: gameEngine.rootIds,
-    rootData: {
-      resolve: (key :ModelKey) => {
-        let model = models.get(key)
-        if (!model) {
-          const gameObject = gameEngine.gameObjects.require(key as string)
-          const createPropertyValue = createPropertyValueCreator(gameObject, applyEdit)
-          models.set(key, model = new Model({
-            id: Value.constant(key),
-            title: createPropertyValue("name"),
-          }))
-        }
-        return model
-      },
+    rootData: modelData,
+    selectedKeys: selection,
+    updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
     },
   })
+}
+
+function setIdSet (set :MutableSet<string>, newSet :ReadonlySet<string>) {
+  // remove anything not in the new set
+  for (const id of set) {
+    if (!newSet.has(id)) set.delete(id)
+  }
+  // add anything not in the old set
+  for (const id of newSet) set.add(id)
 }
 
 function mergeEdits (first :PMap<any>, second :PMap<any>) {
