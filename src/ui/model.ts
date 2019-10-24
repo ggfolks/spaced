@@ -115,8 +115,8 @@ export function createUIModel (gameEngine :GameEngine) {
     },
   }
   return new Model({
-    menubarKeys: Value.constant(["object"]),
-    menubarData: dataProvider({
+    menuBarKeys: Value.constant(["object"]),
+    menuBarData: dataProvider({
       object: {
         name: Value.constant("Object"),
         keys: Value.constant(["new"]),

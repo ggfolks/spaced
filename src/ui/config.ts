@@ -5,7 +5,7 @@ import {RootConfig} from "tfw/ui/element"
 import {createMenuItemConfig} from "tfw/ui/menu"
 
 const MenuBarConfig = {
-  type: "menubar",
+  type: "menuBar",
   offPolicy: "stretch",
   element: {
     type: "menu",
@@ -20,19 +20,19 @@ const MenuBarConfig = {
     shortcutKeys: "shortcutKeys",
     shortcutData: "shortcutData",
   },
-  keys: "menubarKeys",
-  data: "menubarData",
+  keys: "menuBarKeys",
+  data: "menuBarData",
 }
 
 const TabbedPaneConfig = {
-  type: "tabbedpane",
+  type: "tabbedPane",
   tabElement: {
     type: "box",
     contents: {
       type: "row",
       contents: [
         {
-          type: "editablelabel",
+          type: "editableLabel",
           text: "name",
           contents: {
             type: "box",
@@ -109,13 +109,13 @@ export const UIConfig :RootConfig = {
             type: "box",
             scopeId: "pageHeader",
             contents: {
-              type: "treeview",
+              type: "treeView",
               element: {
-                type: "editablelabel",
+                type: "editableLabel",
                 text: "name",
                 contents: {
                   type: "box",
-                  contents: {type: "label", overrideParentState: "normal", scopeId: "treeviewnode"},
+                  contents: {type: "label", overrideParentState: "normal", scopeId: "treeViewNode"},
                 },
               },
               keys: "rootKeys",
