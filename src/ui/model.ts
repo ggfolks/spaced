@@ -32,8 +32,8 @@ export function createUIModel (gameEngine :GameEngine) {
     if (id === DEFAULT_PAGE) return 0
     return gameEngine.gameObjects.require(id).order
   }
-  const pages = new Map<ModelKey, Model>()
-  const pageEditor = createGameObjectEditor(gameEngine, pages)
+  const models = new Map<ModelKey, Model>()
+  const pageEditor = createGameObjectEditor(gameEngine, models)
   const selection = MutableSet.local<string>()
   const setSelection = (newSelection :Set<string>) => {
     // remove anything not in the new selection
@@ -107,10 +107,10 @@ export function createUIModel (gameEngine :GameEngine) {
     pageKeys: gameEngine.pages,
     pageData: {
       resolve: (key :ModelKey) => {
-        let model = pages.get(key)
+        let model = models.get(key)
         if (!model) {
           if (key === DEFAULT_PAGE) {
-            pages.set(key, model = new Model({
+            models.set(key, model = new Model({
               id: Value.constant(DEFAULT_PAGE),
               title: Value.constant(DEFAULT_PAGE),
               removable: Value.constant(false),
@@ -119,7 +119,7 @@ export function createUIModel (gameEngine :GameEngine) {
           } else {
             const gameObject = gameEngine.gameObjects.require(key as string)
             const createPropertyValue = createPropertyValueCreator(gameObject, applyEdit)
-            pages.set(key, model = new Model({
+            models.set(key, model = new Model({
               id: Value.constant(key),
               title: createPropertyValue("name"),
               removable: Value.constant(true),
@@ -177,6 +177,21 @@ export function createUIModel (gameEngine :GameEngine) {
         edit.edit[key] = {order: newOrder}
       }
       applyEdit(edit)
+    },
+    rootKeys: gameEngine.rootIds,
+    rootData: {
+      resolve: (key :ModelKey) => {
+        let model = models.get(key)
+        if (!model) {
+          const gameObject = gameEngine.gameObjects.require(key as string)
+          const createPropertyValue = createPropertyValueCreator(gameObject, applyEdit)
+          models.set(key, model = new Model({
+            id: Value.constant(key),
+            title: createPropertyValue("name"),
+          }))
+        }
+        return model
+      },
     },
   })
 }
