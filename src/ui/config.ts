@@ -107,31 +107,60 @@ export const UIConfig :RootConfig = {
         contents: [
           {
             type: "box",
-            scopeId: "pageHeader",
             contents: {
               type: "treeView",
               element: {
-                type: "editableLabel",
-                text: "name",
+                type: "box",
                 contents: {
-                  type: "box",
-                  contents: {type: "label", overrideParentState: "normal", scopeId: "treeViewNode"},
+                  type: "editableLabel",
+                  text: "name",
+                  contents: {
+                    type: "box",
+                    contents: {
+                      type: "label",
+                      overrideParentState: "normal",
+                      scopeId: "treeViewNode",
+                    },
+                  },
                 },
+                style: {halign: "stretch"},
               },
               keys: "rootKeys",
               data: "rootData",
+              key: "id",
               selectedKeys: "selectedKeys",
               updateParentOrder: "updateParentOrder",
             },
+            style: {halign: "stretch", valign: "stretch", minWidth: 200},
           },
           TabbedPaneConfig,
           {
             type: "box",
-            scopeId: "pageHeader",
             contents: {
-              type: "spacer",
-              width: 100,
+              type: "dragVList",
+              element: {
+                type: "box",
+                scopeId: "componentView",
+                overrideParentState: "normal",
+                contents: {
+                  type: "column",
+                  offPolicy: "stretch",
+                  contents: [
+                    {
+                      type: "box",
+                      scopeId: "componentViewHeader",
+                      contents: {type: "label", text: "type"},
+                    }
+                  ],
+                },
+                style: {halign: "stretch"},
+              },
+              keys: "componentKeys",
+              data: "componentData",
+              key: "type",
+              updateOrder: "updateComponentOrder",
             },
+            style: {halign: "stretch", valign: "stretch", minWidth: 200},
           },
         ],
       },

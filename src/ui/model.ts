@@ -114,22 +114,89 @@ export function createUIModel (gameEngine :GameEngine) {
       return model
     },
   }
+  const getUnusedName = (base :string) => {
+    let name = base
+    for (let ii = 2; gameEngine.gameObjects.has(name); ii++) name = base + ii
+    return name
+  }
   return new Model({
     menuBarKeys: Value.constant(["object"]),
     menuBarData: dataProvider({
       object: {
         name: Value.constant("Object"),
-        keys: Value.constant(["new"]),
+        keys: Value.constant(["group", "camera", "light", "model", "primitive"]),
         data: dataProvider({
-          new: {
-            name: Value.constant("New"),
+          group: {
+            name: Value.constant("Group"),
+            action: () => {
+              const name = getUnusedName("group")
+              applyEdit({selection: new Set([name]), add: {[name]: {}}})
+            },
+          },
+          camera: {
+            name: Value.constant("Camera"),
+            action: () => {
+              const name = getUnusedName("camera")
+              applyEdit({selection: new Set([name]), add: {[name]: {camera: {}}}})
+            },
+          },
+          light: {
+            name: Value.constant("Light"),
+            action: () => {
+              const name = getUnusedName("light")
+              applyEdit({selection: new Set([name]), add: {[name]: {light: {}}}})
+            },
+          },
+          model: {
+            name: Value.constant("Model"),
+            action: () => {
+              const name = getUnusedName("model")
+              applyEdit({selection: new Set([name]), add: {[name]: {model: {}}}})
+            },
+          },
+          primitive: {
+            name: Value.constant("Primitive"),
             submenu: Value.constant(true),
-            keys: Value.constant(["empty"]),
+            keys: Value.constant(["sphere", "cylinder", "cube", "quad"]),
             data: dataProvider({
-              empty: {
-                name: Value.constant("Empty"),
+              sphere: {
+                name: Value.constant("Sphere"),
                 action: () => {
-                  applyEdit({add: {empty: {}}})
+                  const name = getUnusedName("sphere")
+                  applyEdit({
+                    selection: new Set([name]),
+                    add: {[name]: {meshFilter: {}, meshRenderer: {}}},
+                  })
+                },
+              },
+              cylinder: {
+                name: Value.constant("Cylinder"),
+                action: () => {
+                  const name = getUnusedName("cylinder")
+                  applyEdit({
+                    selection: new Set([name]),
+                    add: {[name]: {meshFilter: {}, meshRenderer: {}}},
+                  })
+                },
+              },
+              cube: {
+                name: Value.constant("Cube"),
+                action: () => {
+                  const name = getUnusedName("cube")
+                  applyEdit({
+                    selection: new Set([name]),
+                    add: {[name]: {meshFilter: {}, meshRenderer: {}}},
+                  })
+                },
+              },
+              quad: {
+                name: Value.constant("Quad"),
+                action: () => {
+                  const name = getUnusedName("quad")
+                  applyEdit({
+                    selection: new Set([name]),
+                    add: {[name]: {meshFilter: {}, meshRenderer: {}}},
+                  })
                 },
               },
             }),
@@ -215,6 +282,17 @@ export function createUIModel (gameEngine :GameEngine) {
     rootData: modelData,
     selectedKeys: selection,
     updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
+    },
+    componentKeys: Value.constant(["one", "two"]),
+    componentData: dataProvider({
+      one: {
+        type: Value.constant("one"),
+      },
+      two: {
+        type: Value.constant("two"),
+      },
+    }),
+    updateComponentOrder: (key :string, index :number) => {
     },
   })
 }
