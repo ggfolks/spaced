@@ -39,6 +39,7 @@ export function createUIModel (gameEngine :GameEngine) {
   const pageEditor = createGameObjectEditor(gameEngine, models)
   const selection = MutableSet.local<string>()
   const haveSelection = selection.fold(false, (value, set) => set.size > 0)
+  const selectionArray = selection.fold<string[]>([], (value, set) => Array.from(set))
   const clipboard = Mutable.local<SpaceConfig|undefined>(undefined)
   const expanded = MutableSet.local<string>()
   const canUndo = Mutable.local(false)
@@ -402,15 +403,29 @@ export function createUIModel (gameEngine :GameEngine) {
     selectedKeys: selection,
     updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
     },
-    componentKeys: Value.constant(["one", "two"]),
-    componentData: dataProvider({
-      one: {
-        type: Value.constant("one"),
-      },
-      two: {
-        type: Value.constant("two"),
-      },
+    componentKeys: selectionArray.switchMap(selection => {
+      if (selection.length === 0) return Value.constant<string[]>([])
+      if (selection.length === 1) return gameEngine.gameObjects.require(selection[0]).componentTypes
+      const values :Value<string[]>[] = []
+      for (const id of selection) values.push(gameEngine.gameObjects.require(id).componentTypes)
+      return Value.join(...values).map(componentTypes => {
+        const merged :string[] = []
+        typeLoop: for (const type of componentTypes[0]) {
+          for (let ii = 1; ii < componentTypes.length; ii++) {
+            if (componentTypes[ii].indexOf(type) === -1) continue typeLoop
+          }
+          merged.push(type)
+        }
+        return merged
+      })
     }),
+    componentData: {
+      resolve: (key :ModelKey) => {
+        return new Model({
+          type: Value.constant(key),
+        })
+      },
+    },
     updateComponentOrder: (key :string, index :number) => {
     },
     componentTypeLabel: Value.constant("Add Component"),
