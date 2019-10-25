@@ -1,6 +1,6 @@
+import {dim2} from "tfw/core/math"
 import {Value} from "tfw/core/react"
 import {Scale} from "tfw/core/ui"
-import {windowSize} from "tfw/scene2/gl"
 import {RootConfig} from "tfw/ui/element"
 import {createMenuItemConfig} from "tfw/ui/menu"
 
@@ -73,97 +73,99 @@ const TabbedPaneConfig = {
   constraints: {stretch: true},
 }
 
-export const UIConfig :RootConfig = {
-  type: "root",
-  scale: new Scale(window.devicePixelRatio),
-  autoSize: true,
-  minSize: windowSize(window),
-  contents: {
-    type: "column",
-    offPolicy: "stretch",
-    contents: [
-      {
-        type: "box",
-        scopeId: "pageHeader",
-        style: {halign: "stretch"},
-        contents: {
+export function createUIConfig (minSize :Value<dim2>) :RootConfig {
+  return {
+    type: "root",
+    scale: new Scale(window.devicePixelRatio),
+    autoSize: true,
+    minSize,
+    contents: {
+      type: "column",
+      offPolicy: "stretch",
+      contents: [
+        {
+          type: "box",
+          scopeId: "pageHeader",
+          style: {halign: "stretch"},
+          contents: {
+            type: "row",
+            scopeId: "default",
+            offPolicy: "stretch",
+            contents: [
+              MenuBarConfig,
+              {
+                type: "spacer",
+                width: 10,
+                constraints: {stretch: true},
+              },
+            ],
+          },
+        },
+        {
           type: "row",
-          scopeId: "default",
           offPolicy: "stretch",
+          constraints: {stretch: true},
           contents: [
-            MenuBarConfig,
             {
-              type: "spacer",
-              width: 10,
-              constraints: {stretch: true},
+              type: "box",
+              contents: {
+                type: "treeView",
+                element: {
+                  type: "box",
+                  contents: {
+                    type: "editableLabel",
+                    text: "name",
+                    contents: {
+                      type: "box",
+                      contents: {
+                        type: "label",
+                        overrideParentState: "normal",
+                        scopeId: "treeViewNode",
+                      },
+                    },
+                  },
+                  style: {halign: "stretch"},
+                },
+                keys: "rootKeys",
+                data: "rootData",
+                key: "id",
+                selectedKeys: "selectedKeys",
+                updateParentOrder: "updateParentOrder",
+              },
+              style: {halign: "stretch", valign: "stretch", minWidth: 200},
+            },
+            TabbedPaneConfig,
+            {
+              type: "box",
+              contents: {
+                type: "dragVList",
+                element: {
+                  type: "box",
+                  scopeId: "componentView",
+                  overrideParentState: "normal",
+                  contents: {
+                    type: "column",
+                    offPolicy: "stretch",
+                    contents: [
+                      {
+                        type: "box",
+                        scopeId: "componentViewHeader",
+                        contents: {type: "label", text: "type"},
+                      }
+                    ],
+                  },
+                  style: {halign: "stretch"},
+                },
+                keys: "componentKeys",
+                data: "componentData",
+                key: "type",
+                updateOrder: "updateComponentOrder",
+              },
+              style: {halign: "stretch", valign: "stretch", minWidth: 200},
             },
           ],
         },
-      },
-      {
-        type: "row",
-        offPolicy: "stretch",
-        constraints: {stretch: true},
-        contents: [
-          {
-            type: "box",
-            contents: {
-              type: "treeView",
-              element: {
-                type: "box",
-                contents: {
-                  type: "editableLabel",
-                  text: "name",
-                  contents: {
-                    type: "box",
-                    contents: {
-                      type: "label",
-                      overrideParentState: "normal",
-                      scopeId: "treeViewNode",
-                    },
-                  },
-                },
-                style: {halign: "stretch"},
-              },
-              keys: "rootKeys",
-              data: "rootData",
-              key: "id",
-              selectedKeys: "selectedKeys",
-              updateParentOrder: "updateParentOrder",
-            },
-            style: {halign: "stretch", valign: "stretch", minWidth: 200},
-          },
-          TabbedPaneConfig,
-          {
-            type: "box",
-            contents: {
-              type: "dragVList",
-              element: {
-                type: "box",
-                scopeId: "componentView",
-                overrideParentState: "normal",
-                contents: {
-                  type: "column",
-                  offPolicy: "stretch",
-                  contents: [
-                    {
-                      type: "box",
-                      scopeId: "componentViewHeader",
-                      contents: {type: "label", text: "type"},
-                    }
-                  ],
-                },
-                style: {halign: "stretch"},
-              },
-              keys: "componentKeys",
-              data: "componentData",
-              key: "type",
-              updateOrder: "updateComponentOrder",
-            },
-            style: {halign: "stretch", valign: "stretch", minWidth: 200},
-          },
-        ],
-      },
-    ],
-  },
+      ],
+    },
+  }
 }

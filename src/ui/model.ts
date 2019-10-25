@@ -2,9 +2,10 @@ import {refEquals} from "tfw/core/data"
 import {Mutable, Value} from "tfw/core/react"
 import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
+import {CategoryNode} from "tfw/graph/node"
 import {DEFAULT_PAGE, GameEngine, GameObject, SpaceConfig} from "tfw/engine/game"
 import {getCurrentEditNumber} from "tfw/ui/element"
-import {Model, ModelKey, dataProvider} from "tfw/ui/model"
+import {Model, ModelData, ModelKey, ModelProvider, dataProvider, mapProvider} from "tfw/ui/model"
 
 export interface SpaceEditConfig {
   [id :string] :PMap<any>
@@ -37,6 +38,8 @@ export function createUIModel (gameEngine :GameEngine) {
   const models = new Map<ModelKey, Model>()
   const pageEditor = createGameObjectEditor(gameEngine, models)
   const selection = MutableSet.local<string>()
+  const haveSelection = selection.fold(false, (value, set) => set.size > 0)
+  const clipboard = Mutable.local<SpaceConfig|undefined>(undefined)
   const expanded = MutableSet.local<string>()
   const canUndo = Mutable.local(false)
   const canRedo = Mutable.local(false)
@@ -119,9 +122,117 @@ export function createUIModel (gameEngine :GameEngine) {
     for (let ii = 2; gameEngine.gameObjects.has(name); ii++) name = base + ii
     return name
   }
+  function getCategoryKeys (category :CategoryNode) :Value<string[]> {
+    return category.children.keysValue.map<string[]>(Array.from)
+  }
+  function getCategoryData (category :CategoryNode) :ModelProvider {
+    return mapProvider(category.children, (value, key) => {
+      if (value.current instanceof CategoryNode) return {
+        name: Value.constant(key),
+        submenu: Value.constant(true),
+        keys: getCategoryKeys(value.current),
+        data: getCategoryData(value.current),
+      }
+      return {
+        name: Value.constant(key),
+        action: () => {},
+      } as ModelData
+    })
+  }
   return new Model({
-    menuBarKeys: Value.constant(["object"]),
+    menuBarKeys: Value.constant(["space", "edit", "object", "component"]),
     menuBarData: dataProvider({
+      space: {
+        name: Value.constant("Space"),
+        keys: Value.constant(["clearAll"]),
+        data: dataProvider({
+          clearAll: {
+            name: Value.constant("Clear All"),
+            action: () => {
+              applyEdit({selection: new Set(), remove: new Set(gameEngine.gameObjects.keys())})
+            },
+          },
+        }),
+      },
+      edit: {
+        name: Value.constant("Edit"),
+        keys: Value.constant(
+          ["undo", "redo", "sep1", "cut", "copy", "paste", "delete", "sep2", "selectAll"],
+        ),
+        data: dataProvider({
+          undo: {
+            name: Value.constant("Undo"),
+            shortcut: Value.constant("undo"),
+          },
+          redo: {
+            name: Value.constant("Redo"),
+            shortcut: Value.constant("redo"),
+          },
+          sep1: {separator: Value.constant(true)},
+          cut: {
+            name: Value.constant("Cut"),
+            shortcut: Value.constant("cut"),
+          },
+          copy: {
+            name: Value.constant("Copy"),
+            shortcut: Value.constant("copy"),
+          },
+          paste: {
+            name: Value.constant("Paste"),
+            shortcut: Value.constant("paste"),
+          },
+          delete: {
+            name: Value.constant("Delete"),
+            shortcut: Value.constant("delete"),
+          },
+          sep2: {separator: Value.constant(true)},
+          selectAll: {
+            name: Value.constant("Select All"),
+            action: () => {
+
+            },
+          },
+        }),
+        shortcutKeys: Value.constant(["undo", "redo", "cut", "copy", "paste", "delete"]),
+        shortcutData: dataProvider({
+          undo: {
+            enabled: canUndo,
+            action: () => {
+
+            },
+          },
+          redo: {
+            enabled: canRedo,
+            action: () => {
+
+            },
+          },
+          cut: {
+            enabled: haveSelection,
+            action: () => {
+
+            },
+          },
+          copy: {
+            enabled: haveSelection,
+            action: () => {
+
+            },
+          },
+          paste: {
+            enabled: clipboard.map(Boolean),
+            action: () => {
+
+            },
+          },
+          delete: {
+            enabled: haveSelection,
+            action: () => {
+
+            },
+          },
+        }),
+      },
       object: {
         name: Value.constant("Object"),
         keys: Value.constant(["group", "camera", "light", "model", "primitive"]),
@@ -202,6 +313,11 @@ export function createUIModel (gameEngine :GameEngine) {
             }),
           },
         }),
+      },
+      component: {
+        name: Value.constant("Component"),
+        keys: getCategoryKeys(gameEngine.componentTypeRoot),
+        data: getCategoryData(gameEngine.componentTypeRoot),
       },
     }),
     pageKeys: gameEngine.pages,
