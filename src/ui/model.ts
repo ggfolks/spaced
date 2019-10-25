@@ -3,7 +3,7 @@ import {Mutable, Value} from "tfw/core/react"
 import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
-import {DEFAULT_PAGE, GameEngine, GameObject, SpaceConfig} from "tfw/engine/game"
+import {DEFAULT_PAGE, GameEngine, GameObject, GameObjectConfig, SpaceConfig} from "tfw/engine/game"
 import {getCurrentEditNumber} from "tfw/ui/element"
 import {Model, ModelData, ModelKey, ModelProvider, dataProvider, mapProvider} from "tfw/ui/model"
 
@@ -128,6 +128,14 @@ export function createUIModel (gameEngine :GameEngine) {
     for (let ii = 2; gameEngine.gameObjects.has(name); ii++) name = base + ii
     return name
   }
+  const createObject = (type :string, config :GameObjectConfig) => {
+    const name = getUnusedName(type)
+    const activePage = gameEngine.activePage.current
+    if (activePage !== DEFAULT_PAGE) config.transform = {parentId: activePage}
+    const rootIds = gameEngine.rootIds.current
+    config.order = rootIds.length === 0 ? 0 : getOrder(rootIds[rootIds.length - 1]) + 1
+    applyEdit({selection: new Set([name]), add: {[name]: config}})
+  }
   function getCategoryKeys (category :CategoryNode) :Value<string[]> {
     return category.children.keysValue.map<string[]>(Array.from)
   }
@@ -248,31 +256,19 @@ export function createUIModel (gameEngine :GameEngine) {
         data: dataProvider({
           group: {
             name: Value.constant("Group"),
-            action: () => {
-              const name = getUnusedName("group")
-              applyEdit({selection: new Set([name]), add: {[name]: {}}})
-            },
+            action: () => createObject("group", {}),
           },
           camera: {
             name: Value.constant("Camera"),
-            action: () => {
-              const name = getUnusedName("camera")
-              applyEdit({selection: new Set([name]), add: {[name]: {camera: {}}}})
-            },
+            action: () => createObject("camera", {camera: {}}),
           },
           light: {
             name: Value.constant("Light"),
-            action: () => {
-              const name = getUnusedName("light")
-              applyEdit({selection: new Set([name]), add: {[name]: {light: {}}}})
-            },
+            action: () => createObject("light", {light: {}}),
           },
           model: {
             name: Value.constant("Model"),
-            action: () => {
-              const name = getUnusedName("model")
-              applyEdit({selection: new Set([name]), add: {[name]: {model: {}}}})
-            },
+            action: () => createObject("model", {model: {}}),
           },
           primitive: {
             name: Value.constant("Primitive"),
@@ -281,43 +277,19 @@ export function createUIModel (gameEngine :GameEngine) {
             data: dataProvider({
               sphere: {
                 name: Value.constant("Sphere"),
-                action: () => {
-                  const name = getUnusedName("sphere")
-                  applyEdit({
-                    selection: new Set([name]),
-                    add: {[name]: {meshFilter: {}, meshRenderer: {}}},
-                  })
-                },
+                action: () => createObject("sphere", {meshFilter: {}, meshRenderer: {}}),
               },
               cylinder: {
                 name: Value.constant("Cylinder"),
-                action: () => {
-                  const name = getUnusedName("cylinder")
-                  applyEdit({
-                    selection: new Set([name]),
-                    add: {[name]: {meshFilter: {}, meshRenderer: {}}},
-                  })
-                },
+                action: () => createObject("cylinder", {meshFilter: {}, meshRenderer: {}}),
               },
               cube: {
                 name: Value.constant("Cube"),
-                action: () => {
-                  const name = getUnusedName("cube")
-                  applyEdit({
-                    selection: new Set([name]),
-                    add: {[name]: {meshFilter: {}, meshRenderer: {}}},
-                  })
-                },
+                action: () => createObject("cube", {meshFilter: {}, meshRenderer: {}}),
               },
               quad: {
                 name: Value.constant("Quad"),
-                action: () => {
-                  const name = getUnusedName("quad")
-                  applyEdit({
-                    selection: new Set([name]),
-                    add: {[name]: {meshFilter: {}, meshRenderer: {}}},
-                  })
-                },
+                action: () => createObject("quad", {meshFilter: {}, meshRenderer: {}}),
               },
             }),
           },
@@ -366,7 +338,11 @@ export function createUIModel (gameEngine :GameEngine) {
           break
         }
       }
-      applyEdit({add: {[name]: {page: {}}}})
+      const pages = gameEngine.pages.current
+      applyEdit({
+        activePage: name,
+        add: {[name]: {order: getOrder(pages[pages.length - 1]) + 1, page: {}}},
+      })
     },
     updateOrder: (key :string, index :number) => {
       const currentPageKeys = gameEngine.pages.current
