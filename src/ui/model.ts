@@ -135,10 +135,13 @@ export function createUIModel (gameEngine :GameEngine) {
       }
       return {
         name: Value.constant(key),
+        enabled: haveSelection,
         action: () => {},
       } as ModelData
     })
   }
+  const componentTypeKeys = getCategoryKeys(gameEngine.componentTypeRoot)
+  const componentTypeData = getCategoryData(gameEngine.componentTypeRoot)
   return new Model({
     menuBarKeys: Value.constant(["space", "edit", "object", "component"]),
     menuBarData: dataProvider({
@@ -316,8 +319,8 @@ export function createUIModel (gameEngine :GameEngine) {
       },
       component: {
         name: Value.constant("Component"),
-        keys: getCategoryKeys(gameEngine.componentTypeRoot),
-        data: getCategoryData(gameEngine.componentTypeRoot),
+        keys: componentTypeKeys,
+        data: componentTypeData,
       },
     }),
     pageKeys: gameEngine.pages,
@@ -410,6 +413,9 @@ export function createUIModel (gameEngine :GameEngine) {
     }),
     updateComponentOrder: (key :string, index :number) => {
     },
+    componentTypeLabel: Value.constant("Add Component"),
+    componentTypeKeys,
+    componentTypeData,
   })
 }
 

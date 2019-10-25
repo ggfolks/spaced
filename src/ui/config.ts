@@ -2,7 +2,7 @@ import {dim2} from "tfw/core/math"
 import {Value} from "tfw/core/react"
 import {Scale} from "tfw/core/ui"
 import {RootConfig} from "tfw/ui/element"
-import {createMenuItemConfig} from "tfw/ui/menu"
+import {createDropdownItemConfig} from "tfw/ui/dropdown"
 
 const MenuBarConfig = {
   type: "menuBar",
@@ -14,7 +14,7 @@ const MenuBarConfig = {
       contents: {type: "label", text: "name"},
     },
     // max category depth of two for the moment
-    element: createMenuItemConfig(2),
+    element: createDropdownItemConfig(2, "menuItem"),
     keys: "keys",
     data: "data",
     shortcutKeys: "shortcutKeys",
@@ -138,28 +138,48 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
             {
               type: "box",
               contents: {
-                type: "dragVList",
-                element: {
-                  type: "box",
-                  scopeId: "componentView",
-                  overrideParentState: "normal",
-                  contents: {
-                    type: "column",
-                    offPolicy: "stretch",
-                    contents: [
-                      {
-                        type: "box",
-                        scopeId: "componentViewHeader",
-                        contents: {type: "label", text: "type"},
-                      }
-                    ],
+                type: "column",
+                offPolicy: "stretch",
+                contents: [
+                  {
+                    type: "dragVList",
+                    element: {
+                      type: "box",
+                      scopeId: "componentView",
+                      overrideParentState: "normal",
+                      contents: {
+                        type: "column",
+                        offPolicy: "stretch",
+                        contents: [
+                          {
+                            type: "box",
+                            scopeId: "componentViewHeader",
+                            contents: {type: "label", text: "type"},
+                          }
+                        ],
+                      },
+                      style: {halign: "stretch"},
+                    },
+                    keys: "componentKeys",
+                    data: "componentData",
+                    key: "type",
+                    updateOrder: "updateComponentOrder",
                   },
-                  style: {halign: "stretch"},
-                },
-                keys: "componentKeys",
-                data: "componentData",
-                key: "type",
-                updateOrder: "updateComponentOrder",
+                  {
+                    type: "box",
+                    contents: {
+                      type: "dropdown",
+                      dropLeft: true,
+                      contents: {
+                        type: "box",
+                        contents: {type: "label", text: "componentTypeLabel"},
+                      },
+                      element: createDropdownItemConfig(2, "dropdownItem", true),
+                      keys: "componentTypeKeys",
+                      data: "componentTypeData",
+                    },
+                  },
+                ],
               },
               style: {halign: "stretch", valign: "stretch", minWidth: 200},
             },
