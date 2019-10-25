@@ -97,6 +97,11 @@ export function createUIModel (gameEngine :GameEngine) {
     canUndo.update(true)
     canRedo.update(false)
   }
+  const applyToSelection = (perObjectEdit :PMap<any>) => {
+    const edit :SpaceEditConfig = {}
+    for (const id of selection) edit[id] = perObjectEdit
+    applyEdit({edit})
+  }
   const modelData = {
     resolve: (key :ModelKey) => {
       let model = models.get(key)
@@ -427,6 +432,26 @@ export function createUIModel (gameEngine :GameEngine) {
       },
     },
     updateComponentOrder: (key :string, index :number) => {
+      const gameObject = gameEngine.gameObjects.require(selectionArray.current[0])
+      const types = gameObject.componentTypes.current
+
+      // to reorder an ordinary page, we change its order
+      let newOrder :number
+      switch (index) {
+        case 0:
+          newOrder = gameObject.requireComponent(types[0]).order - 1
+          break
+        case types.length:
+          newOrder = gameObject.requireComponent(types[types.length - 1]).order + 1
+          break
+        default:
+          newOrder = (
+            gameObject.requireComponent(types[index]).order +
+            gameObject.requireComponent(types[index - 1]).order
+          ) / 2
+          break
+      }
+      applyToSelection({[key]: {order: newOrder}})
     },
     componentTypeLabel: Value.constant("Add Component"),
     componentTypeKeys,
@@ -474,10 +499,23 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
         const editConfig = edit.edit[id]
         const reverseConfig :PMap<any> = {}
         for (const key in editConfig) {
-          const property = gameObject.getProperty(key) as Mutable<any>
-          const currentValue = property.current
-          reverseConfig[key] = currentValue === undefined ? null : currentValue
-          property.update(editConfig[key])
+          const component = gameObject.getComponent(key)
+          if (component) {
+            const reverseComponentConfig :PMap<any> = {}
+            reverseConfig[key] = reverseComponentConfig
+            const componentEditConfig = editConfig[key]
+            for (const key in componentEditConfig) {
+              const property = component.getProperty(key) as Mutable<any>
+              const currentValue = property.current
+              reverseComponentConfig[key] = currentValue === undefined ? null : currentValue
+              property.update(componentEditConfig[key])
+            }
+          } else {
+            const property = gameObject.getProperty(key) as Mutable<any>
+            const currentValue = property.current
+            reverseConfig[key] = currentValue === undefined ? null : currentValue
+            property.update(editConfig[key])
+          }
         }
         reverseEdit[id] = reverseConfig
       }
