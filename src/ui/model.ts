@@ -136,6 +136,29 @@ export function createUIModel (gameEngine :GameEngine) {
     config.order = rootIds.length === 0 ? 0 : getOrder(rootIds[rootIds.length - 1]) + 1
     applyEdit({selection: new Set([name]), add: {[name]: config}})
   }
+  const addSubtreeToConfig = (config :SpaceConfig, rootId :string) => {
+    const gameObject = gameEngine.gameObjects.require(rootId)
+    config[rootId] = gameObject.getConfig()
+    for (const childId of gameObject.transform.childIds.current) {
+      addSubtreeToConfig(config, childId)
+    }
+  }
+  const copySelected = () => {
+    const config :SpaceConfig = {}
+    for (const id of selection) addSubtreeToConfig(config, id)
+    clipboard.update(config)
+  }
+  const addSubtreeToSet = (set :Set<string>, rootId :string) => {
+    set.add(rootId)
+    for (const childId of gameEngine.gameObjects.require(rootId).transform.childIds.current) {
+      addSubtreeToSet(set, childId)
+    }
+  }
+  const removeSelected = () => {
+    const remove = new Set<string>()
+    for (const id of selection) addSubtreeToSet(remove, id)
+    applyEdit({selection: new Set(), remove})
+  }
   function getCategoryKeys (category :CategoryNode) :Value<string[]> {
     return category.children.keysValue.map<string[]>(Array.from)
   }
@@ -150,7 +173,17 @@ export function createUIModel (gameEngine :GameEngine) {
       return {
         name: Value.constant(key),
         enabled: haveSelection,
-        action: () => {},
+        action: () => {
+          const gameObject = gameEngine.gameObjects.require(selectionArray.current[0])
+          const componentTypes = gameObject.componentTypes.current
+          const last = gameObject.requireComponent(componentTypes[componentTypes.length - 1])
+          const order = last.order + 1
+          const edit :SpaceEditConfig = {}
+          for (const id of selection) {
+            edit[id] = {[key]: {order}}
+          }
+          applyEdit({edit})
+        },
       } as ModelData
     })
   }
@@ -206,7 +239,9 @@ export function createUIModel (gameEngine :GameEngine) {
           selectAll: {
             name: Value.constant("Select All"),
             action: () => {
-
+              const set = new Set<string>()
+              for (const rootId of gameEngine.rootIds.current) addSubtreeToSet(set, rootId)
+              setIdSet(selection, set)
             },
           },
         }),
@@ -215,26 +250,45 @@ export function createUIModel (gameEngine :GameEngine) {
           undo: {
             enabled: canUndo,
             action: () => {
-
+              const oldSelection = new Set(selection)
+              const edit = undoStack.pop()!
+              gameEngine.activePage.update(edit.activePage)
+              const reverseEdit = pageEditor(edit)
+              setIdSet(selection, edit.selection)
+              setIdSet(expanded, edit.expanded)
+              reverseEdit.activePage = edit.activePage
+              reverseEdit.selection = oldSelection
+              redoStack.push(reverseEdit)
+              canRedo.update(true)
+              canUndo.update(undoStack.length > 0)
             },
           },
           redo: {
             enabled: canRedo,
             action: () => {
-
+              const oldSelection = new Set(selection)
+              const edit = redoStack.pop()!
+              gameEngine.activePage.update(edit.activePage)
+              const reverseEdit = pageEditor(edit)
+              setIdSet(selection, edit.selection)
+              setIdSet(expanded, edit.expanded)
+              reverseEdit.activePage = edit.activePage
+              reverseEdit.selection = oldSelection
+              undoStack.push(reverseEdit)
+              canUndo.update(true)
+              canRedo.update(redoStack.length > 0)
             },
           },
           cut: {
             enabled: haveSelection,
             action: () => {
-
+              copySelected()
+              removeSelected()
             },
           },
           copy: {
             enabled: haveSelection,
-            action: () => {
-
-            },
+            action: copySelected,
           },
           paste: {
             enabled: clipboard.map(Boolean),
@@ -244,9 +298,7 @@ export function createUIModel (gameEngine :GameEngine) {
           },
           delete: {
             enabled: haveSelection,
-            action: () => {
-
-            },
+            action: removeSelected,
           },
         }),
       },
@@ -320,7 +372,11 @@ export function createUIModel (gameEngine :GameEngine) {
               id: Value.constant(key),
               name: createPropertyValue("name"),
               removable: Value.constant(true),
-              remove: () => applyEdit({remove: new Set([gameObject.id])}),
+              remove: () => {
+                const remove = new Set<string>()
+                addSubtreeToSet(remove, key as string)
+                applyEdit({remove})
+              },
             }))
           }
         }
@@ -429,6 +485,7 @@ export function createUIModel (gameEngine :GameEngine) {
       }
       applyToSelection({[key]: {order: newOrder}})
     },
+    haveSelection,
     componentTypeLabel: Value.constant("Add Component"),
     componentTypeKeys,
     componentTypeData,
@@ -477,20 +534,31 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
         for (const key in editConfig) {
           const component = gameObject.getComponent(key)
           if (component) {
-            const reverseComponentConfig :PMap<any> = {}
-            reverseConfig[key] = reverseComponentConfig
             const componentEditConfig = editConfig[key]
-            for (const key in componentEditConfig) {
-              const property = component.getProperty(key) as Mutable<any>
-              const currentValue = property.current
-              reverseComponentConfig[key] = currentValue === undefined ? null : currentValue
-              property.update(componentEditConfig[key])
+            if (componentEditConfig) {
+              const reverseComponentConfig :PMap<any> = {}
+              reverseConfig[key] = reverseComponentConfig
+              for (const key in componentEditConfig) {
+                const property = component.getProperty(key) as Mutable<any>
+                const currentValue = property.current
+                reverseComponentConfig[key] = currentValue === undefined ? null : currentValue
+                property.update(componentEditConfig[key])
+              }
+            } else {
+              reverseConfig[key] = component.getConfig()
+              component.dispose()
             }
           } else {
-            const property = gameObject.getProperty(key) as Mutable<any>
-            const currentValue = property.current
-            reverseConfig[key] = currentValue === undefined ? null : currentValue
-            property.update(editConfig[key])
+            const value = gameObject[key]
+            if (value === undefined) {
+              reverseConfig[key] = null
+              gameObject.addComponent(key, editConfig[key])
+            } else {
+              const property = gameObject.getProperty(key) as Mutable<any>
+              const currentValue = property.current
+              reverseConfig[key] = currentValue === undefined ? null : currentValue
+              property.update(editConfig[key])
+            }
           }
         }
         reverseEdit[id] = reverseConfig

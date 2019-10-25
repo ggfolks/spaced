@@ -167,6 +167,7 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                   },
                   {
                     type: "box",
+                    visible: "haveSelection",
                     contents: {
                       type: "dropdown",
                       dropLeft: true,
