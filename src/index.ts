@@ -45,7 +45,6 @@ loop.start()
 disposer.add(() => loop.stop())
 
 const host = new HTMLHost(root)
-disposer.add(host.bind(gameEngine.renderEngine.domElement))
 disposer.add(loop.clock.onEmit(clock => host.update(clock)))
 
 const ui = new UI(UITheme, UIStyles, {resolve: loadImage})
