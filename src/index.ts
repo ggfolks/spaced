@@ -1,7 +1,7 @@
 import {loadImage} from "tfw/core/assets"
 import {Loop} from "tfw/core/clock"
 import {refEquals} from "tfw/core/data"
-import {dim2} from "tfw/core/math"
+import {dim2, rect, vec2zero} from "tfw/core/math"
 import {Value} from "tfw/core/react"
 import {Disposer} from "tfw/core/util"
 import {TypeScriptGameEngine} from "tfw/engine/typescript/game"
@@ -49,5 +49,6 @@ disposer.add(loop.clock.onEmit(clock => host.update(clock)))
 
 const ui = new UI(UITheme, UIStyles, {resolve: loadImage})
 const uiRoot = ui.createRoot(createUIConfig(rootSize), createUIModel(gameEngine))
-disposer.add(uiRoot.bindOrigin(rootSize, "center", "center", "center", "center"))
+const rootBounds = rootSize.map(size => rect.fromPosSize(vec2zero, size))
+disposer.add(uiRoot.bindOrigin(rootBounds, "center", "center", "center", "center"))
 host.addRoot(uiRoot)
