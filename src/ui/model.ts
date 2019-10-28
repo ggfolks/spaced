@@ -111,6 +111,7 @@ export function createUIModel (gameEngine :GameEngine) {
         models.set(key, model = new Model({
           id: Value.constant(key),
           name: createPropertyValue("name"),
+          hasChildren: gameObject.transform.childIds.map(childIds => childIds.length > 0),
           childKeys: gameObject.transform.childIds,
           childData: modelData,
           expanded: expanded.hasValue(key as string),
@@ -402,8 +403,7 @@ export function createUIModel (gameEngine :GameEngine) {
     },
     updateOrder: (key :string, index :number) => {
       const currentPageKeys = gameEngine.pages.current
-      const currentIndex = currentPageKeys.indexOf(key)
-      if (currentIndex === index) return
+      if (currentPageKeys.indexOf(key) === index) return
       const edit = {edit: {}}
       if (key === DEFAULT_PAGE) {
         // to reorder the default page, we adjust the order of everything around it
@@ -419,19 +419,7 @@ export function createUIModel (gameEngine :GameEngine) {
         }
       } else {
         // to reorder an ordinary page, we change its order
-        let newOrder :number
-        switch (index) {
-          case 0:
-            newOrder = getOrder(currentPageKeys[0]) - 1
-            break
-          case currentPageKeys.length:
-            newOrder = getOrder(currentPageKeys[currentPageKeys.length - 1]) + 1
-            break
-          default:
-            newOrder = (getOrder(currentPageKeys[index]) + getOrder(currentPageKeys[index - 1])) / 2
-            break
-        }
-        edit.edit[key] = {order: newOrder}
+        edit.edit[key] = {order: getNewOrder(currentPageKeys, index, getOrder)}
       }
       applyEdit(edit)
     },
@@ -439,6 +427,26 @@ export function createUIModel (gameEngine :GameEngine) {
     rootData: modelData,
     selectedKeys: selection,
     updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
+      const gameObject = gameEngine.gameObjects.require(key as string)
+      const activePage = gameEngine.activePage.current
+      let parentId :string|null
+      let childIds :string[]
+      let newExpanded = new Set(expanded)
+      if (parent === undefined) {
+        parentId = (activePage === DEFAULT_PAGE) ? null : activePage
+        childIds = gameEngine.rootIds.current
+      } else {
+        parentId = parent as string
+        childIds = gameEngine.gameObjects.require(parentId).transform.childIds.current
+        newExpanded.add(parentId)
+      }
+      const edit :PMap<any> = {}
+      // null is equivalent to undefined in this case, hence != rather than !==
+      if (parentId != gameObject.transform.parentId) edit.transform = {parentId}
+      if (childIds.indexOf(key as string) !== index) {
+        edit.order = getNewOrder(childIds, index, getOrder)
+      }
+      applyEdit({expanded: newExpanded, edit: {[key]: edit}})
     },
     componentKeys: selectionArray.switchMap(selection => {
       if (selection.length === 0) return Value.constant<string[]>([])
@@ -466,30 +474,30 @@ export function createUIModel (gameEngine :GameEngine) {
     updateComponentOrder: (key :string, index :number) => {
       const gameObject = gameEngine.gameObjects.require(selectionArray.current[0])
       const types = gameObject.componentTypes.current
-
-      // to reorder an ordinary page, we change its order
-      let newOrder :number
-      switch (index) {
-        case 0:
-          newOrder = gameObject.requireComponent(types[0]).order - 1
-          break
-        case types.length:
-          newOrder = gameObject.requireComponent(types[types.length - 1]).order + 1
-          break
-        default:
-          newOrder = (
-            gameObject.requireComponent(types[index]).order +
-            gameObject.requireComponent(types[index - 1]).order
-          ) / 2
-          break
-      }
-      applyToSelection({[key]: {order: newOrder}})
+      if (types.indexOf(key) === index) return
+      applyToSelection({
+        [key]: {
+          order: getNewOrder(types, index, type => gameObject.requireComponent(type).order),
+        },
+      })
     },
     haveSelection,
     componentTypeLabel: Value.constant("Add Component"),
     componentTypeKeys,
     componentTypeData,
   })
+}
+
+function getNewOrder (keys :string[], index :number, getOrder :(key :string) => number) :number {
+  if (keys.length === 0) return 0
+  switch (index) {
+    case 0:
+      return getOrder(keys[0]) - 1
+    case keys.length:
+      return getOrder(keys[keys.length - 1]) + 1
+    default:
+      return (getOrder(keys[index - 1]) + getOrder(keys[index])) / 2
+  }
 }
 
 function setIdSet (set :MutableSet<string>, newSet :ReadonlySet<string>) {
