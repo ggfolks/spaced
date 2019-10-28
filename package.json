@@ -1,5 +1,5 @@
 {
-  "name": "tfw-platform-spaced",
+  "name": "@tfwdev/spaced",
   "version": "1.0.0",
   "description": "Space editor for the tfw multiplayer game platform",
   "author": "tfw, inc. (https://tfw.dev)",
@@ -10,11 +10,11 @@
   },
   "sideEffects": false,
   "scripts": {
-    "postinstall": "yarn link --cwd ../platform/lib ; yarn link tfw",
-    "start": "webpack-dev-server --config webpack.dev.js",
-    "webpack": "webpack --config webpack.prod.js",
     "build": "tsc -b",
-    "server": "NODE_PATH=./node_modules node lib/server.js"
+    "linktfw": "yarn link --cwd ../platform/lib ; yarn link @tfwdev/platform",
+    "server": "NODE_PATH=./node_modules node lib/server.js",
+    "start": "webpack-dev-server --config webpack.dev.js",
+    "webpack": "webpack --config webpack.prod.js"
   },
   "jest": {
     "moduleFileExtensions": [
@@ -26,7 +26,7 @@
     }
   },
   "dependencies": {
-    "tfw": "file:../platform/lib"
+    "@tfwdev/platform": "file:../platform/lib"
   },
   "devDependencies": {
     "awesome-typescript-loader": "^5.2.0",

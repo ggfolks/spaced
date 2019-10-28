@@ -6,9 +6,9 @@
     "rootDir": "src",
     "outDir": "lib",
 
-    "baseUrl": "./node_modules",
+    "baseUrl": ".",
     "paths": {
-      "tfw-platform/*": [ "lib/*" ]
+      "tfw/*": [ "node_modules/@tfwdev/platform/*" ]
     },
 
     "module": "commonjs",
