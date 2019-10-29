@@ -180,11 +180,7 @@ export function createUIModel (gameEngine :GameEngine) {
           const componentTypes = gameObject.componentTypes.current
           const last = gameObject.requireComponent(componentTypes[componentTypes.length - 1])
           const order = last.order + 1
-          const edit :SpaceEditConfig = {}
-          for (const id of selection) {
-            edit[id] = {[key]: {order}}
-          }
-          applyEdit({edit})
+          applyToSelection({[key]: {order}})
         },
       } as ModelData
     })
@@ -497,8 +493,39 @@ export function createUIModel (gameEngine :GameEngine) {
     }),
     componentData: {
       resolve: (key :ModelKey) => {
+        const componentType = key as string
+        const id = selection.values().next().value
+        const component = gameEngine.gameObjects.require(id).requireComponent(componentType)
+        const properties = component.propertiesMeta
         return new Model({
           type: Value.constant(key),
+          removable: Value.constant(component.removable),
+          remove: () => applyToSelection({[key]: null}),
+          propertyKeys: properties.keysValue.map(keys => {
+            const filteredKeys :string[] = []
+            for (const key of keys) {
+              const constraints = properties.require(key).constraints
+              if (!constraints.transient && constraints.editable !== false) filteredKeys.push(key)
+            }
+            return filteredKeys
+          }),
+          propertyData: mapProvider(properties, (value, key) => {
+            const meta = value.current
+            const propertyName = key as string
+            const property = component.getProperty(propertyName)
+            return {
+              name: Value.constant(propertyName),
+              type: Value.constant(meta.type),
+              value: meta.constraints.readonly
+                ? property
+                : Mutable.deriveMutable(
+                  dispatch => property.onChange(dispatch),
+                  () => property.current,
+                  value => applyToSelection({[componentType]: {[propertyName]: value}}),
+                  refEquals,
+                ),
+            }
+          }),
         })
       },
     },

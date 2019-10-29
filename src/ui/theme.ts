@@ -1,21 +1,28 @@
 import {customStyles, customTheme, family} from "tfw/ui/theme"
 
-const componentViewHeaderCorner = [5, 5, 0, 0]
+const componentHeaderCorner = [5, 5, 0, 0]
+const componentBodyCorner = [0, 0, 5, 5]
 
 export const UIStyles = customStyles({
   colors: {},
   shadows: {},
   fonts: {
-    componentViewHeader: {family, size: 16},
+    componentHeader: {family, size: 16},
+    componentBody: {family, size: 16},
+    componentProperty: {family, size: 14},
     addComponent: {family, size: 16},
   },
   paints: {},
   borders: {},
   backgrounds: {
     pageHeader: {fill: {type: "color", color: "#303030"}},
-    componentViewHeader: {
-      fill: {type: "color", color: "#303030"},
-      cornerRadius: componentViewHeaderCorner,
+    componentHeader: {
+      fill: {type: "color", color: "#404040"},
+      cornerRadius: componentHeaderCorner,
+    },
+    componentBody: {
+      fill: {type: "color", color: "#606060"},
+      cornerRadius: componentBodyCorner,
     },
   },
 })
@@ -24,18 +31,25 @@ export const UITheme = customTheme({
   pageHeader: {
     box: {background: "$pageHeader"},
   },
-  componentView: {
+  component: {
     box: {margin: 5},
   },
-  componentViewHeader: {
-    box: {padding: 5, background: "$componentViewHeader"},
+  componentHeader: {
+    box: {padding: 5, background: "$componentHeader"},
   },
-  componentViewType: {
-    label: {font: "$componentViewHeader"},
+  componentBody: {
+    box: {padding: 5, background: "$componentBody"},
+    label: {font: "$componentBody"},
+  },
+  componentType: {
+    label: {font: "$componentHeader"},
+  },
+  componentProperties: {
+    label: {font: "$componentProperty", fill: "$lightGray"},
   },
   removeComponentButton: {
     label: {
-      font: "$componentViewHeader",
+      font: "$componentHeader",
       fill: "$darkGray",
       hovered: {fill: "$mediumGray"},
       hoverFocused: {fill: "$mediumGray"},

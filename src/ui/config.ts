@@ -145,7 +145,7 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                     type: "dragVList",
                     element: {
                       type: "box",
-                      scopeId: "componentView",
+                      scopeId: "component",
                       overrideParentState: "normal",
                       contents: {
                         type: "column",
@@ -153,18 +153,19 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                         contents: [
                           {
                             type: "box",
-                            scopeId: "componentViewHeader",
+                            scopeId: "componentHeader",
                             contents: {
                               type: "absLayout",
                               contents: [
                                 {
                                   type: "box",
-                                  scopeId: "componentViewType",
+                                  scopeId: "componentType",
                                   contents: {type: "label", text: "type"},
                                   constraints: {stretchX: true, stretchY: true},
                                 },
                                 {
                                   type: "box",
+                                  visible: "removable",
                                   scopeId: "default",
                                   contents: {
                                     type: "button",
@@ -173,11 +174,26 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                                       scopeId: "removeComponentButton",
                                       contents: {type: "label", text: Value.constant("×")},
                                     },
+                                    onClick: "remove",
                                   },
                                   constraints: {stretchX: true, stretchY: true},
                                   style: {halign: "right"},
                                 },
                               ],
+                            },
+                            style: {halign: "stretch", valign: "stretch"},
+                          },
+                          {
+                            type: "box",
+                            scopeId: "componentBody",
+                            contents: {
+                              type: "propertyView",
+                              gap: 5,
+                              scopeId: "componentProperties",
+                              editable: Value.constant(true),
+                              offPolicy: "stretch",
+                              keys: "propertyKeys",
+                              data: "propertyData",
                             },
                             style: {halign: "stretch", valign: "stretch"},
                           },
