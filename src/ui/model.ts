@@ -4,6 +4,7 @@ import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {DEFAULT_PAGE, GameEngine, GameObject, GameObjectConfig, SpaceConfig} from "tfw/engine/game"
+import {JavaScript} from "tfw/engine/util"
 import {getCurrentEditNumber} from "tfw/ui/element"
 import {Model, ModelData, ModelKey, ModelProvider, dataProvider, mapProvider} from "tfw/ui/model"
 
@@ -195,12 +196,42 @@ export function createUIModel (gameEngine :GameEngine) {
     menuBarData: dataProvider({
       space: {
         name: Value.constant("Space"),
-        keys: Value.constant(["clearAll"]),
+        keys: Value.constant(["clearAll", "sep", "import", "export"]),
         data: dataProvider({
           clearAll: {
             name: Value.constant("Clear All"),
             action: () => {
               applyEdit({selection: new Set(), remove: new Set(gameEngine.gameObjects.keys())})
+            },
+          },
+          sep: {separator: Value.constant(true)},
+          import: {
+            name: Value.constant("Import..."),
+            action: () => {
+              const input = document.createElement("input")
+              input.setAttribute("type", "file")
+              input.setAttribute("accept", "application/javascript")
+              input.addEventListener("change", event => {
+                if (!input.files || input.files.length === 0) return
+                const reader = new FileReader()
+                reader.onload = () => {
+                  JavaScript.parse(reader.result as string)
+                }
+                reader.readAsText(input.files[0])
+              })
+              input.click()
+            },
+          },
+          export: {
+            name: Value.constant("Export..."),
+            action: () => {
+              const file = new File(
+                [JavaScript.stringify(gameEngine.getConfig())],
+                "space.config.js",
+                {type: "application/octet-stream"},
+              )
+              open(URL.createObjectURL(file), "_self")
+              // TODO: call revokeObjectURL when finished with download
             },
           },
         }),
