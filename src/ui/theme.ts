@@ -7,6 +7,7 @@ export const UIStyles = customStyles({
   shadows: {},
   fonts: {
     componentViewHeader: {family, size: 16},
+    addComponent: {family, size: 16},
   },
   paints: {},
   borders: {},
@@ -27,7 +28,39 @@ export const UITheme = customTheme({
     box: {margin: 5},
   },
   componentViewHeader: {
-    box: {background: "$componentViewHeader"},
+    box: {padding: 5, background: "$componentViewHeader"},
+  },
+  componentViewType: {
     label: {font: "$componentViewHeader"},
+  },
+  removeComponentButton: {
+    label: {
+      font: "$componentViewHeader",
+      fill: "$darkGray",
+      hovered: {fill: "$mediumGray"},
+      hoverFocused: {fill: "$mediumGray"},
+      pressed: {fill: "$lightGray"},
+    },
+  },
+  addComponentButton: {
+    box: {
+      padding: [5, 10, 5, 10],
+      background: "$dropdown",
+      hovered: {background: "$dropdownHovered"},
+      hoverFocused: {background: "$dropdownHovered"},
+      pressed: {background: "$dropdownPressed"},
+    },
+    label: {font: "$addComponent"},
+  },
+  addComponentItem: {
+    box: {
+      padding: [5, 5, 5, 15],
+      background: "$dropdownItem",
+      hovered: {background: "$dropdownItemHovered"},
+      hoverFocused: {background: "$dropdownItemHovered"},
+      pressed: {background: "$dropdownItemPressed"},
+      separator: {background: undefined},
+    },
+    label: {font: "$addComponent"},
   },
 })

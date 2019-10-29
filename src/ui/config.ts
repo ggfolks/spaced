@@ -154,8 +154,33 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                           {
                             type: "box",
                             scopeId: "componentViewHeader",
-                            contents: {type: "label", text: "type"},
-                          }
+                            contents: {
+                              type: "absLayout",
+                              contents: [
+                                {
+                                  type: "box",
+                                  scopeId: "componentViewType",
+                                  contents: {type: "label", text: "type"},
+                                  constraints: {stretchX: true, stretchY: true},
+                                },
+                                {
+                                  type: "box",
+                                  scopeId: "default",
+                                  contents: {
+                                    type: "button",
+                                    contents: {
+                                      type: "box",
+                                      scopeId: "removeComponentButton",
+                                      contents: {type: "label", text: Value.constant("×")},
+                                    },
+                                  },
+                                  constraints: {stretchX: true, stretchY: true},
+                                  style: {halign: "right"},
+                                },
+                              ],
+                            },
+                            style: {halign: "stretch", valign: "stretch"},
+                          },
                         ],
                       },
                       style: {halign: "stretch"},
@@ -173,16 +198,17 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                       dropLeft: true,
                       contents: {
                         type: "box",
+                        scopeId: "addComponentButton",
                         contents: {type: "label", text: "componentTypeLabel"},
                       },
-                      element: createDropdownItemConfig(2, "dropdownItem", true),
+                      element: createDropdownItemConfig(2, "dropdownItem", true, "addComponentItem"),
                       keys: "componentTypeKeys",
                       data: "componentTypeData",
                     },
                   },
                 ],
               },
-              style: {halign: "stretch", valign: "stretch", minWidth: 200},
+              style: {halign: "stretch", valign: "stretch", minWidth: 300},
             },
           ],
         },
