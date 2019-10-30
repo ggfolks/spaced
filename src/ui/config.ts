@@ -54,6 +54,7 @@ const TabbedPaneConfig = {
   },
   contentElement: {
     type: "spacer",
+    tags: new Set(["canvas"]),
     constraints: {stretch: true},
   },
   addTabElement: {

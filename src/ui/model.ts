@@ -1,4 +1,5 @@
 import {refEquals} from "tfw/core/data"
+import {quat, vec3} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
@@ -31,6 +32,24 @@ interface FullGameObjectEdit extends GameObjectEdit {
   remove :Set<string>
 }
 
+const EditorObjects :SpaceConfig = {
+  editorCamera: {
+    transform: {
+      localPosition: vec3.fromValues(0, 5, 5),
+      localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
+    },
+  },
+  editorGrid: {
+    transform: {
+      localScale: vec3.fromValues(1000, 1000, 1),
+    },
+    meshFilter: {
+      meshConfig: {type: "quad"},
+    },
+    meshRenderer: {},
+  },
+}
+
 export function createUIModel (gameEngine :GameEngine) {
   const getOrder = (id :string) => {
     if (id === DEFAULT_PAGE) return 0
@@ -47,6 +66,15 @@ export function createUIModel (gameEngine :GameEngine) {
   const canRedo = Mutable.local(false)
   const undoStack :FullGameObjectEdit[] = []
   const redoStack :FullGameObjectEdit[] = []
+  const resetModel = () => {
+    expanded.clear()
+    selection.clear()
+    undoStack.length = 0
+    redoStack.length = 0
+    for (const gameObject of gameEngine.gameObjects.values()) gameObject.dispose()
+    gameEngine.createGameObjects(EditorObjects)
+  }
+  resetModel()
   const applyEdit = (edit :GameObjectEdit) => {
     const oldActivePage = gameEngine.activePage.current
     const oldSelection = new Set(selection)
@@ -423,9 +451,19 @@ export function createUIModel (gameEngine :GameEngine) {
         }
       }
       const pages = gameEngine.pages.current
+      const editorObjects :SpaceConfig = {}
+      for (const key in EditorObjects) {
+        const objectConfig = JavaScript.clone(EditorObjects[key])
+        if (!objectConfig.transform) objectConfig.transform = {}
+        objectConfig.transform.parentId = name
+        editorObjects[getUnusedName(key)] = objectConfig
+      }
       applyEdit({
         activePage: name,
-        add: {[name]: {order: getOrder(pages[pages.length - 1]) + 1, page: {}}},
+        add: {
+          [name]: {order: getOrder(pages[pages.length - 1]) + 1, page: {}},
+          ...editorObjects,
+        },
       })
     },
     updateOrder: (key :string, index :number) => {
@@ -587,9 +625,30 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
       }
     }
     if (edit.add) {
+      // first create, then configure (in case properties depend on other objects)
       for (const id in edit.add) {
-        gameEngine.createGameObject(id, edit.add[id])
+        const addConfig = edit.add[id]
+        const config :GameObjectConfig = {}
+        for (const key in addConfig) {
+          const value = addConfig[key]
+          config[key] = (typeof value === "object") ? {} : value
+        }
+        gameEngine.createGameObject(id, config)
         reverseRemove.add(id)
+      }
+      for (const id in edit.add) {
+        const gameObject = gameEngine.gameObjects.require(id)
+        const addConfig = edit.add[id]
+        for (const key in addConfig) {
+          const component = gameObject.getComponent(key)
+          if (component) {
+            const componentAddConfig = addConfig[key]
+            for (const key in componentAddConfig) {
+              const property = component.getProperty(key) as Mutable<any>
+              property.update(componentAddConfig[key])
+            }
+          }
+        }
       }
     }
     if (edit.edit) {

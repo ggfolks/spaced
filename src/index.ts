@@ -39,16 +39,20 @@ disposer.add(gameEngine)
 disposer.add(new ThreeRenderEngine(gameEngine))
 disposer.add(new CannonPhysicsEngine(gameEngine))
 
-const loop = new Loop()
-disposer.add(loop.clock.onEmit(clock => gameEngine.update(clock)))
-loop.start()
-disposer.add(() => loop.stop())
-
-const host = new HTMLHost(root)
-disposer.add(loop.clock.onEmit(clock => host.update(clock)))
-
 const ui = new UI(UITheme, UIStyles, {resolve: loadImage})
 const uiRoot = ui.createRoot(createUIConfig(rootSize), createUIModel(gameEngine))
 const rootBounds = rootSize.map(size => rect.fromPosSize(vec2zero, size))
 disposer.add(uiRoot.bindOrigin(rootBounds, "center", "center", "center", "center"))
+const host = new HTMLHost(root)
 host.addRoot(uiRoot)
+
+const canvas = uiRoot.findTaggedChild("canvas")!
+
+const loop = new Loop()
+disposer.add(loop.clock.onEmit(clock => {
+  host.update(clock)
+  gameEngine.renderEngine.setBounds(canvas.bounds)
+  gameEngine.update(clock)
+}))
+loop.start()
+disposer.add(() => loop.stop())
