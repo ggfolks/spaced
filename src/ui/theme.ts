@@ -13,7 +13,16 @@ export const UIStyles = customStyles({
     addComponent: {family, size: 16},
   },
   paints: {},
-  borders: {},
+  borders: {
+    leftColumn: {
+      stroke: {type: "color", color: "#303030"},
+      width: [1, 1, 0, 0],
+    },
+    rightColumn: {
+      stroke: {type: "color", color: "#303030"},
+      width: [1, 0, 0, 1],
+    },
+  },
   backgrounds: {
     pageHeader: {fill: {type: "color", color: "#303030"}},
     componentHeader: {
@@ -30,6 +39,12 @@ export const UIStyles = customStyles({
 export const UITheme = customTheme({
   pageHeader: {
     box: {background: "$pageHeader"},
+  },
+  leftColumn: {
+    box: {padding: 5, border: "$leftColumn"},
+  },
+  rightColumn: {
+    box: {border: "$rightColumn"},
   },
   component: {
     box: {margin: 5},
