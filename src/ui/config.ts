@@ -148,7 +148,7 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                   },
                 ],
               },
-              style: {halign: "stretch", valign: "stretch", minWidth: 200},
+              style: {halign: "stretch", valign: "stretch", preferredWidth: 200},
             },
             TabbedPaneConfig,
             {
@@ -263,7 +263,7 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                   },
                 ],
               },
-              style: {halign: "stretch", valign: "stretch", minWidth: 300},
+              style: {halign: "stretch", valign: "stretch", preferredWidth: 300},
             },
           ],
         },
