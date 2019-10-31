@@ -7,7 +7,7 @@ import {CategoryNode} from "tfw/graph/node"
 import {DEFAULT_PAGE, GameEngine, GameObject, GameObjectConfig, SpaceConfig} from "tfw/engine/game"
 import {JavaScript} from "tfw/engine/util"
 import {getCurrentEditNumber} from "tfw/ui/element"
-import {Model, ModelData, ModelKey, ModelProvider, dataProvider, mapProvider} from "tfw/ui/model"
+import {Model, ModelData, ModelKey, ElementsModel, dataModel, mapModel} from "tfw/ui/model"
 
 export interface SpaceEditConfig {
   [id :string] :PMap<any>
@@ -131,27 +131,29 @@ export function createUIModel (gameEngine :GameEngine) {
     for (const id of selection) edit[id] = perObjectEdit
     applyEdit({edit})
   }
-  const modelData = {
-    resolve: (key :ModelKey) => {
-      let model = models.get(key)
-      if (!model) {
-        const gameObject = gameEngine.gameObjects.require(key as string)
-        const createPropertyValue = createPropertyValueCreator(gameObject, applyEdit)
-        models.set(key, model = new Model({
-          id: Value.constant(key),
-          name: createPropertyValue("name"),
-          hasChildren: gameObject.transform.childIds.map(childIds => childIds.length > 0),
-          childKeys: gameObject.transform.childIds,
-          childData: modelData,
-          expanded: expanded.hasValue(key as string),
-          toggleExpanded: () => {
-            if (expanded.has(key as string)) expanded.delete(key as string)
-            else expanded.add(key as string)
-          },
-        }))
-      }
-      return model
-    },
+  function gameObjectModel (keys :Value<string[]>) :ElementsModel<string> {
+    return {
+      keys,
+      resolve: (key :ModelKey) => {
+        let model = models.get(key)
+        if (!model) {
+          const gameObject = gameEngine.gameObjects.require(key as string)
+          const createPropertyValue = createPropertyValueCreator(gameObject, applyEdit)
+          models.set(key, model = new Model({
+            id: Value.constant(key),
+            name: createPropertyValue("name"),
+            hasChildren: gameObject.transform.childIds.map(childIds => childIds.length > 0),
+            childModel: gameObjectModel(gameObject.transform.childIds),
+            expanded: expanded.hasValue(key as string),
+            toggleExpanded: () => {
+              if (expanded.has(key as string)) expanded.delete(key as string)
+              else expanded.add(key as string)
+            },
+          }))
+        }
+        return model
+      },
+    }
   }
   const getUnusedName = (base :string) => {
     let name = base
@@ -189,16 +191,12 @@ export function createUIModel (gameEngine :GameEngine) {
     for (const id of selection) addSubtreeToSet(remove, id)
     applyEdit({selection: new Set(), remove})
   }
-  function getCategoryKeys (category :CategoryNode) :Value<string[]> {
-    return category.children.keysValue.map<string[]>(Array.from)
-  }
-  function getCategoryData (category :CategoryNode) :ModelProvider {
-    return mapProvider(category.children, (value, key) => {
+  function getCategoryModel (category :CategoryNode) :ElementsModel<string> {
+    return mapModel(category.children.keysValue, category.children, (value, key) => {
       if (value.current instanceof CategoryNode) return {
         name: Value.constant(key),
         submenu: Value.constant(true),
-        keys: getCategoryKeys(value.current),
-        data: getCategoryData(value.current),
+        model: getCategoryModel(value.current),
       }
       return {
         name: Value.constant(key),
@@ -213,15 +211,12 @@ export function createUIModel (gameEngine :GameEngine) {
       } as ModelData
     })
   }
-  const componentTypeKeys = getCategoryKeys(gameEngine.componentTypeRoot)
-  const componentTypeData = getCategoryData(gameEngine.componentTypeRoot)
+  const componentTypesModel = getCategoryModel(gameEngine.componentTypeRoot)
   return new Model({
-    menuBarKeys: Value.constant(["space", "edit", "object", "component"]),
-    menuBarData: dataProvider({
+    menuBarModel: dataModel({
       space: {
         name: Value.constant("Space"),
-        keys: Value.constant(["clearAll", "sep", "import", "export"]),
-        data: dataProvider({
+        model: dataModel({
           clearAll: {
             name: Value.constant("Clear All"),
             action: () => {
@@ -262,10 +257,7 @@ export function createUIModel (gameEngine :GameEngine) {
       },
       edit: {
         name: Value.constant("Edit"),
-        keys: Value.constant(
-          ["undo", "redo", "sep1", "cut", "copy", "paste", "delete", "sep2", "selectAll"],
-        ),
-        data: dataProvider({
+        model: dataModel({
           undo: {
             name: Value.constant("Undo"),
             shortcut: Value.constant("undo"),
@@ -301,8 +293,7 @@ export function createUIModel (gameEngine :GameEngine) {
             },
           },
         }),
-        shortcutKeys: Value.constant(["undo", "redo", "cut", "copy", "paste", "delete"]),
-        shortcutData: dataProvider({
+        shortcutsModel: dataModel({
           undo: {
             enabled: canUndo,
             action: () => {
@@ -360,8 +351,7 @@ export function createUIModel (gameEngine :GameEngine) {
       },
       object: {
         name: Value.constant("Object"),
-        keys: Value.constant(["group", "camera", "light", "model", "primitive"]),
-        data: dataProvider({
+        model: dataModel({
           group: {
             name: Value.constant("Group"),
             action: () => createObject("group", {}),
@@ -381,8 +371,7 @@ export function createUIModel (gameEngine :GameEngine) {
           primitive: {
             name: Value.constant("Primitive"),
             submenu: Value.constant(true),
-            keys: Value.constant(["sphere", "cylinder", "cube", "quad"]),
-            data: dataProvider({
+            model: dataModel({
               sphere: {
                 name: Value.constant("Sphere"),
                 action: () => createObject("sphere", {meshFilter: {}, meshRenderer: {}}),
@@ -405,12 +394,11 @@ export function createUIModel (gameEngine :GameEngine) {
       },
       component: {
         name: Value.constant("Component"),
-        keys: componentTypeKeys,
-        data: componentTypeData,
+        model: componentTypesModel,
       },
     }),
-    pageKeys: gameEngine.pages,
-    pageData: {
+    pagesModel: {
+      keys: gameEngine.pages,
       resolve: (key :ModelKey) => {
         let model = models.get(key)
         if (!model) {
@@ -488,8 +476,7 @@ export function createUIModel (gameEngine :GameEngine) {
       }
       applyEdit(edit)
     },
-    rootKeys: gameEngine.rootIds,
-    rootData: modelData,
+    rootModel: gameObjectModel(gameEngine.rootIds),
     selectedKeys: selection,
     updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
       const gameObject = gameEngine.gameObjects.require(key as string)
@@ -513,23 +500,24 @@ export function createUIModel (gameEngine :GameEngine) {
       }
       applyEdit({expanded: newExpanded, edit: {[key]: edit}})
     },
-    componentKeys: selectionArray.switchMap(selection => {
-      if (selection.length === 0) return Value.constant<string[]>([])
-      if (selection.length === 1) return gameEngine.gameObjects.require(selection[0]).componentTypes
-      const values :Value<string[]>[] = []
-      for (const id of selection) values.push(gameEngine.gameObjects.require(id).componentTypes)
-      return Value.join(...values).map(componentTypes => {
-        const merged :string[] = []
-        typeLoop: for (const type of componentTypes[0]) {
-          for (let ii = 1; ii < componentTypes.length; ii++) {
-            if (componentTypes[ii].indexOf(type) === -1) continue typeLoop
+    componentsModel: {
+      keys: selectionArray.switchMap(selection => {
+        if (selection.length === 0) return Value.constant<string[]>([])
+        if (selection.length === 1) return gameEngine.gameObjects.require(
+          selection[0]).componentTypes
+        const values :Value<string[]>[] = []
+        for (const id of selection) values.push(gameEngine.gameObjects.require(id).componentTypes)
+        return Value.join(...values).map(componentTypes => {
+          const merged :string[] = []
+          typeLoop: for (const type of componentTypes[0]) {
+            for (let ii = 1; ii < componentTypes.length; ii++) {
+              if (componentTypes[ii].indexOf(type) === -1) continue typeLoop
+            }
+            merged.push(type)
           }
-          merged.push(type)
-        }
-        return merged
-      })
-    }),
-    componentData: {
+          return merged
+        })
+      }),
       resolve: (key :ModelKey) => {
         const componentType = key as string
         const id = selection.values().next().value
@@ -539,15 +527,14 @@ export function createUIModel (gameEngine :GameEngine) {
           type: Value.constant(key),
           removable: Value.constant(component.removable),
           remove: () => applyToSelection({[key]: null}),
-          propertyKeys: properties.keysValue.map(keys => {
+          propertiesModel: mapModel(properties.keysValue.map(keys => {
             const filteredKeys :string[] = []
             for (const key of keys) {
               const constraints = properties.require(key).constraints
               if (!constraints.transient && constraints.editable !== false) filteredKeys.push(key)
             }
             return filteredKeys
-          }),
-          propertyData: mapProvider(properties, (value, key) => {
+          }), properties, (value, key) => {
             const meta = value.current
             const propertyName = key as string
             const property = component.getProperty(propertyName)
@@ -579,8 +566,7 @@ export function createUIModel (gameEngine :GameEngine) {
     },
     haveSelection,
     componentTypeLabel: Value.constant("Add Component"),
-    componentTypeKeys,
-    componentTypeData,
+    componentTypesModel,
   })
 }
 
