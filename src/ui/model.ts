@@ -38,15 +38,17 @@ const EditorObjects :SpaceConfig = {
       localPosition: vec3.fromValues(0, 5, 5),
       localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
     },
+    camera: {order: 1},
   },
   editorGrid: {
     transform: {
       localScale: vec3.fromValues(1000, 1000, 1),
     },
     meshFilter: {
+      order: 1,
       meshConfig: {type: "quad"},
     },
-    meshRenderer: {},
+    meshRenderer: {order: 2},
   },
 }
 
@@ -170,7 +172,7 @@ export function createUIModel (gameEngine :GameEngine) {
   }
   const addSubtreeToConfig = (config :SpaceConfig, rootId :string) => {
     const gameObject = gameEngine.gameObjects.require(rootId)
-    config[rootId] = gameObject.getConfig()
+    config[rootId] = gameObject.createConfig()
     for (const childId of gameObject.transform.childIds.current) {
       addSubtreeToConfig(config, childId)
     }
@@ -211,7 +213,7 @@ export function createUIModel (gameEngine :GameEngine) {
       } as ModelData
     })
   }
-  const componentTypesModel = getCategoryModel(gameEngine.componentTypeRoot)
+  const componentTypesModel = getCategoryModel(gameEngine.getConfigurableTypeRoot("component"))
   return new Model({
     menuBarModel: dataModel({
       space: {
@@ -245,7 +247,7 @@ export function createUIModel (gameEngine :GameEngine) {
             name: Value.constant("Export..."),
             action: () => {
               const file = new File(
-                [JavaScript.stringify(gameEngine.getConfig())],
+                [JavaScript.stringify(gameEngine.createConfig())],
                 "space.config.js",
                 {type: "application/octet-stream"},
               )
@@ -605,7 +607,7 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
     if (edit.remove) {
       for (const id of edit.remove) {
         const gameObject = gameEngine.gameObjects.require(id)
-        reverseAdd[id] = gameObject.getConfig()
+        reverseAdd[id] = gameObject.createConfig()
         gameObject.dispose()
         models.delete(id)
       }
@@ -656,7 +658,7 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
                 property.update(componentEditConfig[key])
               }
             } else {
-              reverseConfig[key] = component.getConfig()
+              reverseConfig[key] = component.createConfig()
               component.dispose()
             }
           } else {
