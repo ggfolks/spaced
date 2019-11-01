@@ -1,3 +1,4 @@
+import {Color} from "tfw/core/color"
 import {refEquals} from "tfw/core/data"
 import {quat, vec3} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
@@ -40,7 +41,7 @@ const EditorObjects :SpaceConfig = {
     },
     camera: {order: 1},
   },
-  editorGrid: {
+  /* editorGrid: {
     transform: {
       localScale: vec3.fromValues(1000, 1000, 1),
     },
@@ -49,6 +50,17 @@ const EditorObjects :SpaceConfig = {
       meshConfig: {type: "quad"},
     },
     meshRenderer: {order: 2},
+  }, */
+  editorAmbient: {
+    light: {color: Color.fromRGB(0.25, 0.25, 0.25)},
+  },
+  editorDirectional: {
+    transform: {localPosition: vec3.fromValues(1, 1, 1)},
+    light: {lightType: "directional"},
+  },
+  editorSphere: {
+    meshFilter: {meshConfig: {type: "sphere"}},
+    meshRenderer: {materialConfig: {type: "standard"}},
   },
 }
 
@@ -376,19 +388,31 @@ export function createUIModel (gameEngine :GameEngine) {
             model: dataModel({
               sphere: {
                 name: Value.constant("Sphere"),
-                action: () => createObject("sphere", {meshFilter: {}, meshRenderer: {}}),
+                action: () => createObject(
+                  "sphere",
+                  {meshFilter: {meshConfig: {type: "sphere"}}, meshRenderer: {}},
+                ),
               },
               cylinder: {
                 name: Value.constant("Cylinder"),
-                action: () => createObject("cylinder", {meshFilter: {}, meshRenderer: {}}),
+                action: () => createObject(
+                  "cylinder",
+                  {meshFilter: {meshConfig: {type: "cylinder"}}, meshRenderer: {}},
+                ),
               },
               cube: {
                 name: Value.constant("Cube"),
-                action: () => createObject("cube", {meshFilter: {}, meshRenderer: {}}),
+                action: () => createObject(
+                  "cube",
+                  {meshFilter: {meshConfig: {type: "cube"}}, meshRenderer: {}},
+                ),
               },
               quad: {
                 name: Value.constant("Quad"),
-                action: () => createObject("quad", {meshFilter: {}, meshRenderer: {}}),
+                action: () => createObject(
+                  "quad",
+                  {meshFilter: {meshConfig: {type: "quad"}}, meshRenderer: {}},
+                ),
               },
             }),
           },
