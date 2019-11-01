@@ -33,37 +33,6 @@ interface FullGameObjectEdit extends GameObjectEdit {
   remove :Set<string>
 }
 
-const EditorObjects :SpaceConfig = {
-  editorCamera: {
-    transform: {
-      localPosition: vec3.fromValues(0, 5, 5),
-      localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
-    },
-    camera: {order: 1},
-  },
-  /* editorGrid: {
-    transform: {
-      localScale: vec3.fromValues(1000, 1000, 1),
-    },
-    meshFilter: {
-      order: 1,
-      meshConfig: {type: "quad"},
-    },
-    meshRenderer: {order: 2},
-  }, */
-  editorAmbient: {
-    light: {color: Color.fromRGB(0.25, 0.25, 0.25)},
-  },
-  editorDirectional: {
-    transform: {localPosition: vec3.fromValues(1, 1, 1)},
-    light: {lightType: "directional"},
-  },
-  editorSphere: {
-    meshFilter: {meshConfig: {type: "sphere"}},
-    meshRenderer: {materialConfig: {type: "standard"}},
-  },
-}
-
 export function createUIModel (gameEngine :GameEngine) {
   const getOrder = (id :string) => {
     if (id === DEFAULT_PAGE) return 0
@@ -80,15 +49,17 @@ export function createUIModel (gameEngine :GameEngine) {
   const canRedo = Mutable.local(false)
   const undoStack :FullGameObjectEdit[] = []
   const redoStack :FullGameObjectEdit[] = []
+  const editorObjects = createEditorObjects(gameEngine)
   const resetModel = () => {
     expanded.clear()
     selection.clear()
     undoStack.length = 0
     redoStack.length = 0
     for (const gameObject of gameEngine.gameObjects.values()) gameObject.dispose()
-    gameEngine.createGameObjects(EditorObjects)
+    gameEngine.createGameObjects(editorObjects)
   }
   resetModel()
+  gameEngine.activePage.onChange(() => selection.clear())
   const applyEdit = (edit :GameObjectEdit) => {
     const oldActivePage = gameEngine.activePage.current
     const oldSelection = new Set(selection)
@@ -465,18 +436,18 @@ export function createUIModel (gameEngine :GameEngine) {
         }
       }
       const pages = gameEngine.pages.current
-      const editorObjects :SpaceConfig = {}
-      for (const key in EditorObjects) {
-        const objectConfig = JavaScript.clone(EditorObjects[key])
+      const pageEditorObjects :SpaceConfig = {}
+      for (const key in editorObjects) {
+        const objectConfig = JavaScript.clone(editorObjects[key])
         if (!objectConfig.transform) objectConfig.transform = {}
         objectConfig.transform.parentId = name
-        editorObjects[getUnusedName(key)] = objectConfig
+        pageEditorObjects[getUnusedName(key)] = objectConfig
       }
       applyEdit({
         activePage: name,
         add: {
           [name]: {order: getOrder(pages[pages.length - 1]) + 1, page: {}},
-          ...editorObjects,
+          ...pageEditorObjects,
         },
       })
     },
@@ -594,6 +565,41 @@ export function createUIModel (gameEngine :GameEngine) {
     componentTypeLabel: Value.constant("Add Component"),
     componentTypesModel,
   })
+}
+
+function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
+  return {
+    editorCamera: {
+      transform: {
+        localPosition: vec3.fromValues(0, 5, 5),
+        localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
+      },
+      camera: {},
+      graph: {
+        graphConfig: gameEngine.ctx.subgraphs.createGraphConfig(["orbit"]),
+      },
+    },
+    /* editorGrid: {
+      transform: {
+        localScale: vec3.fromValues(1000, 1000, 1),
+      },
+      meshFilter: {
+        meshConfig: {type: "quad"},
+      },
+      meshRenderer: {},
+    }, */
+    editorAmbient: {
+      light: {color: Color.fromRGB(0.25, 0.25, 0.25)},
+    },
+    editorDirectional: {
+      transform: {localPosition: vec3.fromValues(1, 1, 1)},
+      light: {lightType: "directional"},
+    },
+    editorCube: {
+      meshFilter: {meshConfig: {type: "cube"}},
+      meshRenderer: {materialConfig: {type: "standard"}},
+    },
+  }
 }
 
 function getNewOrder (keys :string[], index :number, getOrder :(key :string) => number) :number {
