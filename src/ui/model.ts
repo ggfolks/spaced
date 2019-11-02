@@ -5,10 +5,14 @@ import {Mutable, Value} from "tfw/core/react"
 import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
-import {DEFAULT_PAGE, GameEngine, GameObject, GameObjectConfig, SpaceConfig} from "tfw/engine/game"
+import {
+  DEFAULT_PAGE, GameEngine, GameObject, GameObjectConfig, PrimitiveTypes, SpaceConfig,
+} from "tfw/engine/game"
 import {JavaScript} from "tfw/engine/util"
 import {getCurrentEditNumber} from "tfw/ui/element"
-import {Model, ModelData, ModelKey, ElementsModel, dataModel, mapModel} from "tfw/ui/model"
+import {
+  Model, ModelData, ModelKey, ElementsModel, dataModel, makeModel, mapModel,
+} from "tfw/ui/model"
 
 export interface SpaceEditConfig {
   [id :string] :PMap<any>
@@ -356,36 +360,19 @@ export function createUIModel (gameEngine :GameEngine) {
           primitive: {
             name: Value.constant("Primitive"),
             submenu: Value.constant(true),
-            model: dataModel({
-              sphere: {
-                name: Value.constant("Sphere"),
+            model: makeModel(
+              Value.constant(PrimitiveTypes),
+              type => ({
+                name: Value.constant(type),
                 action: () => createObject(
-                  "sphere",
-                  {meshFilter: {meshConfig: {type: "sphere"}}, meshRenderer: {}},
+                  type,
+                  {
+                    meshFilter: {meshConfig: {type}},
+                    meshRenderer: {materialConfig: {type: "standard"}},
+                  },
                 ),
-              },
-              cylinder: {
-                name: Value.constant("Cylinder"),
-                action: () => createObject(
-                  "cylinder",
-                  {meshFilter: {meshConfig: {type: "cylinder"}}, meshRenderer: {}},
-                ),
-              },
-              cube: {
-                name: Value.constant("Cube"),
-                action: () => createObject(
-                  "cube",
-                  {meshFilter: {meshConfig: {type: "cube"}}, meshRenderer: {}},
-                ),
-              },
-              quad: {
-                name: Value.constant("Quad"),
-                action: () => createObject(
-                  "quad",
-                  {meshFilter: {meshConfig: {type: "quad"}}, meshRenderer: {}},
-                ),
-              },
-            }),
+              }),
+            ),
           },
         }),
       },
@@ -579,25 +566,28 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
         graphConfig: gameEngine.ctx.subgraphs.createGraphConfig(["orbit"]),
       },
     },
-    /* editorGrid: {
+    editorGrid: {
       transform: {
+        localRotation: quat.fromEuler(quat.create(), -90, 0, 0),
         localScale: vec3.fromValues(1000, 1000, 1),
       },
       meshFilter: {
         meshConfig: {type: "quad"},
       },
-      meshRenderer: {},
-    }, */
+      meshRenderer: {
+        materialConfig: {
+          type: "shader",
+          vertexShaderGraphConfig: {},
+          fragmentShaderGraphConfig: {},
+        },
+      },
+    },
     editorAmbient: {
       light: {color: Color.fromRGB(0.25, 0.25, 0.25)},
     },
     editorDirectional: {
       transform: {localPosition: vec3.fromValues(1, 1, 1)},
       light: {lightType: "directional"},
-    },
-    editorCube: {
-      meshFilter: {meshConfig: {type: "cube"}},
-      meshRenderer: {materialConfig: {type: "standard"}},
     },
   }
 }
