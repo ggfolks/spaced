@@ -184,12 +184,6 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                                     contents: [
                                       {
                                         type: "box",
-                                        scopeId: "componentType",
-                                        contents: {type: "label", text: "type"},
-                                        constraints: {stretchX: true, stretchY: true},
-                                      },
-                                      {
-                                        type: "box",
                                         visible: "removable",
                                         scopeId: "default",
                                         contents: {
@@ -203,6 +197,12 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                                         },
                                         constraints: {stretchX: true, stretchY: true},
                                         style: {halign: "right"},
+                                      },
+                                      {
+                                        type: "box",
+                                        scopeId: "componentType",
+                                        contents: {type: "label", text: "type"},
+                                        constraints: {stretchX: true, stretchY: true},
                                       },
                                     ],
                                   },
