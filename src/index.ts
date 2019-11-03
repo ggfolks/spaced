@@ -2,7 +2,7 @@ import {loadImage} from "tfw/core/assets"
 import {Loop} from "tfw/core/clock"
 import {refEquals} from "tfw/core/data"
 import {dim2, rect, vec2zero} from "tfw/core/math"
-import {Value} from "tfw/core/react"
+import {Mutable, Value} from "tfw/core/react"
 import {Disposer} from "tfw/core/util"
 import {TypeScriptGameEngine} from "tfw/engine/typescript/game"
 import {ThreeRenderEngine} from "tfw/engine/typescript/three/render"
@@ -34,7 +34,8 @@ const rootSize = Value.deriveValue(
 const disposer = new Disposer()
 document.body.addEventListener("unload", () => disposer.dispose())
 
-const gameEngine = new TypeScriptGameEngine(root)
+const gameBounds = Mutable.local(rect.create(), rect.eq)
+const gameEngine = new TypeScriptGameEngine(root, gameBounds)
 disposer.add(gameEngine)
 disposer.add(new ThreeRenderEngine(gameEngine))
 disposer.add(new CannonPhysicsEngine(gameEngine))
@@ -51,7 +52,7 @@ const canvas = uiRoot.findTaggedChild("canvas")!
 const loop = new Loop()
 disposer.add(loop.clock.onEmit(clock => {
   host.update(clock)
-  gameEngine.renderEngine.setBounds(canvas.bounds)
+  gameBounds.update(canvas.bounds)
   gameEngine.update(clock)
 }))
 loop.start()
