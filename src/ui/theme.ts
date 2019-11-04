@@ -2,6 +2,7 @@ import {customStyles, customTheme, family} from "tfw/ui/theme"
 
 const componentHeaderCorner = [5, 5, 0, 0]
 const componentBodyCorner = [0, 0, 5, 5]
+const componentActionButtonCorner = 5
 
 export const UIStyles = customStyles({
   colors: {},
@@ -29,6 +30,18 @@ export const UIStyles = customStyles({
     componentHeader: {
       fill: {type: "color", color: "#404040"},
       cornerRadius: componentHeaderCorner,
+    },
+    componentActionButton: {
+      fill: {type: "color", color: "#303030"},
+      cornerRadius: componentActionButtonCorner,
+    },
+    componentActionButtonHovered: {
+      fill: {type: "color", color: "#282828"},
+      cornerRadius: componentActionButtonCorner,
+    },
+    componentActionButtonPressed: {
+      fill: {type: "color", color: "#202020"},
+      cornerRadius: componentActionButtonCorner,
     },
     componentBody: {
       fill: {type: "color", color: "#606060"},
@@ -62,6 +75,16 @@ export const UITheme = customTheme({
   },
   componentProperties: {
     label: {font: "$componentProperty", fill: "$lightGray"},
+  },
+  componentActionButton: {
+    box: {
+      padding: [3, 8, 3, 8],
+      background: "$componentActionButton",
+      hovered: {background: "$componentActionButtonHovered"},
+      hoverFocused: {background: "$componentActionButtonHovered"},
+      pressed: {background: "$componentActionButtonPressed"},
+    },
+    label: {font: "$componentProperty"},
   },
   removeComponentButton: {
     label: {

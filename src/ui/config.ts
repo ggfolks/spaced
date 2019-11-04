@@ -200,6 +200,19 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                                         style: {halign: "left"},
                                       },
                                       {
+                                        type: "hlist",
+                                        model: "actionsModel",
+                                        element: {
+                                          type: "button",
+                                          contents: {
+                                            type: "box",
+                                            scopeId: "componentActionButton",
+                                            contents: {type: "label", text: "name"},
+                                          },
+                                          onClick: "action",
+                                        },
+                                      },
+                                      {
                                         type: "button",
                                         visible: "removable",
                                         contents: {

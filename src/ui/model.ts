@@ -531,6 +531,18 @@ export function createUIModel (gameEngine :GameEngine) {
           type: Value.constant(key),
           removable: Value.constant(component.removable),
           remove: () => applyToSelection({[key]: null}),
+          actionsModel: dataModel(key === "transform" ? {
+            reset: {
+              name: Value.constant("Reset"),
+              action: () => applyToSelection({
+                transform: {
+                  localPosition: vec3.create(),
+                  localRotation: quat.create(),
+                  localScale: vec3.fromValues(1, 1, 1),
+                },
+              }),
+            },
+          } : {}),
           propertiesModel: mapModel(properties.keysValue.map(keys => {
             const filteredKeys :string[] = []
             for (const key of keys) {
