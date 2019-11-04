@@ -190,29 +190,24 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                                   type: "box",
                                   scopeId: "componentHeader",
                                   contents: {
-                                    type: "absLayout",
+                                    type: "row",
                                     contents: [
-                                      {
-                                        type: "box",
-                                        visible: "removable",
-                                        scopeId: "default",
-                                        contents: {
-                                          type: "button",
-                                          contents: {
-                                            type: "box",
-                                            scopeId: "removeComponentButton",
-                                            contents: {type: "label", text: Value.constant("×")},
-                                          },
-                                          onClick: "remove",
-                                        },
-                                        constraints: {stretchX: true, stretchY: true},
-                                        style: {halign: "right"},
-                                      },
                                       {
                                         type: "box",
                                         scopeId: "componentType",
                                         contents: {type: "label", text: "type"},
-                                        constraints: {stretchX: true, stretchY: true},
+                                        constraints: {stretch: true},
+                                        style: {halign: "left"},
+                                      },
+                                      {
+                                        type: "button",
+                                        visible: "removable",
+                                        contents: {
+                                          type: "box",
+                                          scopeId: "removeComponentButton",
+                                          contents: {type: "label", text: Value.constant("×")},
+                                        },
+                                        onClick: "remove",
                                       },
                                     ],
                                   },
