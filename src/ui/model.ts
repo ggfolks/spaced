@@ -355,7 +355,7 @@ export function createUIModel (gameEngine :GameEngine) {
           },
           model: {
             name: Value.constant("Model"),
-            action: () => createObject("model", {model: {}}),
+            action: () => createObject("model", {model: {}, animation: {}}),
           },
           primitive: {
             name: Value.constant("Primitive"),
@@ -519,13 +519,13 @@ export function createUIModel (gameEngine :GameEngine) {
             }
             return filteredKeys
           }), properties, (value, key) => {
-            const meta = value.current
             const propertyName = key as string
             const property = component.getProperty(propertyName)
             return {
               name: Value.constant(propertyName),
-              type: Value.constant(meta.type),
-              value: meta.constraints.readonly
+              type: value.map(value => value.type),
+              constraints: value.map(value => value.constraints),
+              value: value.current.constraints.readonly
                 ? property
                 : Mutable.deriveMutable(
                   dispatch => property.onChange(dispatch),
