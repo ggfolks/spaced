@@ -11,6 +11,7 @@ export const UIStyles = customStyles({
     componentBody: {family, size: 16},
     componentProperty: {family, size: 14},
     addComponent: {family, size: 16},
+    stats: {family, size: 16},
   },
   paints: {},
   borders: {
@@ -91,5 +92,9 @@ export const UITheme = customTheme({
       separator: {background: undefined},
     },
     label: {font: "$addComponent"},
+  },
+  stats: {
+    box: {padding: 10},
+    label: {font: "$stats"},
   },
 })

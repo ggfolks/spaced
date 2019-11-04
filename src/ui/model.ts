@@ -201,6 +201,11 @@ export function createUIModel (gameEngine :GameEngine) {
     })
   }
   const componentTypesModel = getCategoryModel(gameEngine.getConfigurableTypeRoot("component"))
+  const showStats = Mutable.local(false)
+  const statsModel = makeModel(
+    gameEngine.renderEngine.stats,
+    stat => ({stat: Value.constant(stat)}),
+  )
   return new Model({
     menuBarModel: dataModel({
       space: {
@@ -338,6 +343,17 @@ export function createUIModel (gameEngine :GameEngine) {
           },
         }),
       },
+      view: {
+        name: Value.constant("View"),
+        model: dataModel({
+          stats: {
+            name: Value.constant("Stats"),
+            checkable: Value.constant(true),
+            checked: showStats,
+            action: () => showStats.update(!showStats.current),
+          },
+        }),
+      },
       object: {
         name: Value.constant("Object"),
         model: dataModel({
@@ -392,6 +408,8 @@ export function createUIModel (gameEngine :GameEngine) {
               name: Value.constant(DEFAULT_PAGE),
               removable: Value.constant(false),
               remove: Noop,
+              showStats,
+              statsModel,
             }))
           } else {
             const gameObject = gameEngine.gameObjects.require(key as string)
@@ -405,6 +423,8 @@ export function createUIModel (gameEngine :GameEngine) {
                 addSubtreeToSet(remove, key as string)
                 applyEdit({remove})
               },
+              showStats,
+              statsModel,
             }))
           }
         }
