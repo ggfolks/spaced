@@ -1,5 +1,6 @@
 import * as http from "http"
 import * as fs from "fs"
+import "module-alias/register"
 
 import {log} from "tfw/core/util"
 

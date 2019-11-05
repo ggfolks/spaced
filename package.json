@@ -37,8 +37,12 @@
     },
     "npmRebuild": false
   },
+  "_moduleAliases": {
+    "tfw": "node_modules/@tfwdev/platform"
+  },
   "dependencies": {
-    "@tfwdev/platform": "file:../platform/lib"
+    "@tfwdev/platform": "^0.2.0-snapshot",
+    "module-alias": "^2.2.2"
   },
   "devDependencies": {
     "awesome-typescript-loader": "^5.2.0",
