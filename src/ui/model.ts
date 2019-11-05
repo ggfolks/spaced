@@ -11,7 +11,7 @@ import {
 import {JavaScript} from "tfw/engine/util"
 import {getCurrentEditNumber} from "tfw/ui/element"
 import {
-  Model, ModelData, ModelKey, ElementsModel, dataModel, makeModel, mapModel,
+  Command, Model, ModelData, ModelKey, ElementsModel, dataModel, makeModel, mapModel,
 } from "tfw/ui/model"
 
 export interface SpaceEditConfig {
@@ -206,6 +206,50 @@ export function createUIModel (gameEngine :GameEngine) {
     gameEngine.renderEngine.stats,
     stat => ({stat: Value.constant(stat)}),
   )
+
+  const menuActions = {
+    undo: new Command(() => {
+      const oldSelection = new Set(selection)
+      const edit = undoStack.pop()!
+      gameEngine.activePage.update(edit.activePage)
+      const reverseEdit = pageEditor(edit)
+      setIdSet(selection, edit.selection)
+      setIdSet(expanded, edit.expanded)
+      reverseEdit.activePage = edit.activePage
+      reverseEdit.selection = oldSelection
+      redoStack.push(reverseEdit)
+      canRedo.update(true)
+      canUndo.update(undoStack.length > 0)
+    }, canUndo),
+    redo: new Command(() => {
+      const oldSelection = new Set(selection)
+      const edit = redoStack.pop()!
+      gameEngine.activePage.update(edit.activePage)
+      const reverseEdit = pageEditor(edit)
+      setIdSet(selection, edit.selection)
+      setIdSet(expanded, edit.expanded)
+      reverseEdit.activePage = edit.activePage
+      reverseEdit.selection = oldSelection
+      undoStack.push(reverseEdit)
+      canUndo.update(true)
+      canRedo.update(redoStack.length > 0)
+    }, canRedo),
+    cut: new Command(() => {
+      copySelected()
+      removeSelected()
+    }, haveSelection),
+    copy: new Command(copySelected, haveSelection),
+    paste: new Command(() => {
+      // TODO
+    }, clipboard.map(Boolean)),
+    delete: new Command(removeSelected, haveSelection),
+    selectAll: () => {
+      const set = new Set<string>()
+      for (const rootId of gameEngine.rootIds.current) addSubtreeToSet(set, rootId)
+      setIdSet(selection, set)
+    },
+  }
+
   return new Model({
     menuBarModel: dataModel({
       space: {
@@ -254,23 +298,28 @@ export function createUIModel (gameEngine :GameEngine) {
         model: dataModel({
           undo: {
             name: Value.constant("Undo"),
+            action: menuActions.undo,
             shortcut: Value.constant("undo"),
           },
           redo: {
             name: Value.constant("Redo"),
+            action: menuActions.redo,
             shortcut: Value.constant("redo"),
           },
           sep1: {separator: Value.constant(true)},
           cut: {
             name: Value.constant("Cut"),
+            action: menuActions.cut,
             shortcut: Value.constant("cut"),
           },
           copy: {
             name: Value.constant("Copy"),
+            action: menuActions.copy,
             shortcut: Value.constant("copy"),
           },
           paste: {
             name: Value.constant("Paste"),
+            action: menuActions.paste,
             shortcut: Value.constant("paste"),
           },
           delete: {
@@ -280,66 +329,8 @@ export function createUIModel (gameEngine :GameEngine) {
           sep2: {separator: Value.constant(true)},
           selectAll: {
             name: Value.constant("Select All"),
-            action: () => {
-              const set = new Set<string>()
-              for (const rootId of gameEngine.rootIds.current) addSubtreeToSet(set, rootId)
-              setIdSet(selection, set)
-            },
-          },
-        }),
-        shortcutsModel: dataModel({
-          undo: {
-            enabled: canUndo,
-            action: () => {
-              const oldSelection = new Set(selection)
-              const edit = undoStack.pop()!
-              gameEngine.activePage.update(edit.activePage)
-              const reverseEdit = pageEditor(edit)
-              setIdSet(selection, edit.selection)
-              setIdSet(expanded, edit.expanded)
-              reverseEdit.activePage = edit.activePage
-              reverseEdit.selection = oldSelection
-              redoStack.push(reverseEdit)
-              canRedo.update(true)
-              canUndo.update(undoStack.length > 0)
-            },
-          },
-          redo: {
-            enabled: canRedo,
-            action: () => {
-              const oldSelection = new Set(selection)
-              const edit = redoStack.pop()!
-              gameEngine.activePage.update(edit.activePage)
-              const reverseEdit = pageEditor(edit)
-              setIdSet(selection, edit.selection)
-              setIdSet(expanded, edit.expanded)
-              reverseEdit.activePage = edit.activePage
-              reverseEdit.selection = oldSelection
-              undoStack.push(reverseEdit)
-              canUndo.update(true)
-              canRedo.update(redoStack.length > 0)
-            },
-          },
-          cut: {
-            enabled: haveSelection,
-            action: () => {
-              copySelected()
-              removeSelected()
-            },
-          },
-          copy: {
-            enabled: haveSelection,
-            action: copySelected,
-          },
-          paste: {
-            enabled: clipboard.map(Boolean),
-            action: () => {
-
-            },
-          },
-          delete: {
-            enabled: haveSelection,
-            action: removeSelected,
+            action: menuActions.selectAll,
+            shortcut: Value.constant("selectAll"),
           },
         }),
       },
@@ -583,6 +574,7 @@ export function createUIModel (gameEngine :GameEngine) {
     haveSelection,
     componentTypeLabel: Value.constant("Add Component"),
     componentTypesModel,
+    ...menuActions,
   })
 }
 

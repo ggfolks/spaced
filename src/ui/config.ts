@@ -2,6 +2,7 @@ import {dim2} from "tfw/core/math"
 import {Value} from "tfw/core/react"
 import {Scale} from "tfw/core/ui"
 import {RootConfig} from "tfw/ui/element"
+import {CtrlMask, MetaMask, ShiftMask} from "tfw/ui/keymap"
 import {createDropdownItemConfig} from "tfw/ui/dropdown"
 
 const MenuBarConfig = {
@@ -16,7 +17,6 @@ const MenuBarConfig = {
     // max category depth of two for the moment
     element: createDropdownItemConfig(2, "menuItem"),
     model: "model",
-    shortcutsModel: "shortcutsModel",
   },
   model: "menuBarModel",
 }
@@ -86,6 +86,19 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
     scale: new Scale(window.devicePixelRatio),
     autoSize: true,
     minSize,
+    keymap: {
+      // TODO: use something that abstracts over the fact that on Mac we use Meta for many things
+      // versus Ctrl on Linux & Windows
+      KeyX: {[CtrlMask]: "cut", [MetaMask]: "cut"},
+      KeyC: {[CtrlMask]: "copy", [MetaMask]: "copy"},
+      KeyV: {[CtrlMask]: "paste", [MetaMask]: "paste"},
+      KeyA: {[CtrlMask]: "selectAll", [MetaMask]: "selectAll"},
+
+      Delete: {0: "delete"},
+
+      KeyZ: {[CtrlMask]: "undo", [CtrlMask|ShiftMask]: "redo"},
+      KeyY: {[CtrlMask]: "redo"},
+    },
     contents: {
       type: "column",
       offPolicy: "stretch",
