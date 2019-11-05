@@ -95,7 +95,8 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
       KeyA: {[CtrlMask]: "selectAll", [MetaMask]: "selectAll"},
 
       Delete: {0: "delete"},
-
+      NumpadDecimal: {0: "delete"},
+      
       KeyZ: {[CtrlMask]: "undo", [CtrlMask|ShiftMask]: "redo"},
       KeyY: {[CtrlMask]: "redo"},
     },
