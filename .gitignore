@@ -1,5 +1,4 @@
 node_modules
 tsconfig.tsbuildinfo
 lib
-dist/builder-effective-config.yaml
 
