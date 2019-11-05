@@ -17,7 +17,6 @@
     "webpack": "webpack --config webpack.prod.js",
     "electron": "electron main.local.js",
     "dist": "electron-builder -w"
-    // "prepare": "electron-builder install-app-deps"
   },
   "jest": {
     "moduleFileExtensions": [
