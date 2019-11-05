@@ -324,6 +324,7 @@ export function createUIModel (gameEngine :GameEngine) {
           },
           delete: {
             name: Value.constant("Delete"),
+            action: menuActions.delete,
             shortcut: Value.constant("delete"),
           },
           sep2: {separator: Value.constant(true)},
