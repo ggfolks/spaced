@@ -69,7 +69,7 @@ const TabbedPaneConfig = {
     contents: {
       type: "box",
       scopeId: "addTabButton",
-      contents: {type: "label", text: Value.constant("✚")},
+      contents: {type: "label", text: Value.constant("+")},
     },
     onClick: "createPage",
   },
@@ -96,7 +96,7 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
 
       Delete: {0: "delete"},
       NumpadDecimal: {0: "delete"},
-      
+
       KeyZ: {[CtrlMask]: "undo", [CtrlMask|ShiftMask]: "redo"},
       KeyY: {[CtrlMask]: "redo"},
     },
