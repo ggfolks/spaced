@@ -14,7 +14,10 @@
     "linktfw": "yarn link --cwd ../platform/lib ; yarn link @tfwdev/platform",
     "server": "NODE_PATH=./node_modules node lib/server.js",
     "start": "webpack-dev-server --config webpack.dev.js",
-    "webpack": "webpack --config webpack.prod.js"
+    "webpack": "webpack --config webpack.prod.js",
+    "electron": "electron main.local.js",
+    "dist": "electron-builder -w",
+    "postinstall": "electron-builder install-app-deps"
   },
   "jest": {
     "moduleFileExtensions": [
@@ -25,11 +28,22 @@
       "^.+\\.ts$": "ts-jest"
     }
   },
+  "main": "main.dev.js",
+  "build": {
+    "appId": "dev.tfw.spaced",
+    "productName": "Spaced",
+    "directories": {
+      "output": "lib"
+    },
+    "npmRebuild": false
+  },
   "dependencies": {
     "@tfwdev/platform": "file:../platform/lib"
   },
   "devDependencies": {
     "awesome-typescript-loader": "^5.2.0",
+    "electron": "^7.0.1",
+    "electron-builder": "^22.1.0",
     "lodash": "^4.17.13",
     "ts-jest": "^24.0.0",
     "typescript": "^3.5.1",
