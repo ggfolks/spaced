@@ -34,7 +34,7 @@ const rootSize = Value.deriveValue(
 const disposer = new Disposer()
 document.body.addEventListener("unload", () => disposer.dispose())
 
-const gameBounds = Mutable.local(rect.create(), rect.eq)
+const gameBounds = Mutable.local(rect.create())
 const gameEngine = new TypeScriptGameEngine(root, gameBounds)
 disposer.add(gameEngine)
 disposer.add(new ThreeRenderEngine(gameEngine))
@@ -52,7 +52,7 @@ const canvas = uiRoot.findTaggedChild("canvas")!
 const loop = new Loop()
 disposer.add(loop.clock.onEmit(clock => {
   host.update(clock)
-  gameBounds.update(canvas.bounds)
+  if (!rect.eq(gameBounds.current, canvas.bounds)) gameBounds.update(rect.clone(canvas.bounds))
   gameEngine.update(clock)
 }))
 loop.start()
