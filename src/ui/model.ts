@@ -1,6 +1,6 @@
 import {Color} from "tfw/core/color"
 import {refEquals} from "tfw/core/data"
-import {quat, vec3} from "tfw/core/math"
+import {dim2, quat, vec3} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
@@ -11,8 +11,11 @@ import {
 import {JavaScript} from "tfw/engine/util"
 import {getCurrentEditNumber} from "tfw/ui/element"
 import {
-  Command, Model, ModelData, ModelKey, ElementsModel, dataModel, makeModel, mapModel,
+  Action, Command, Model, ModelData, ModelKey, ElementsModel, dataModel, makeModel, mapModel,
 } from "tfw/ui/model"
+import {UI} from "tfw/ui/ui"
+import {createPrefsConfig} from "./config"
+import {Preferences} from "../prefs"
 
 export interface SpaceEditConfig {
   [id :string] :PMap<any>
@@ -37,7 +40,7 @@ interface FullGameObjectEdit extends GameObjectEdit {
   remove :Set<string>
 }
 
-export function createUIModel (gameEngine :GameEngine) {
+export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui :UI) {
   const getOrder = (id :string) => {
     if (id === DEFAULT_PAGE) return 0
     return gameEngine.gameObjects.require(id).order
@@ -250,6 +253,8 @@ export function createUIModel (gameEngine :GameEngine) {
     },
   }
 
+  const prefs = new Preferences(gameEngine)
+
   return new Model({
     menuBarModel: dataModel({
       space: {
@@ -332,6 +337,17 @@ export function createUIModel (gameEngine :GameEngine) {
             name: Value.constant("Select All"),
             action: menuActions.selectAll,
             shortcut: Value.constant("selectAll"),
+          },
+          sep3: {separator: Value.constant(true)},
+          preferences: {
+            name: Value.constant("Preferences"),
+            action: () => {
+              const prefsRoot = ui.createRoot(
+                createPrefsConfig(minSize),
+                createPrefsModel(prefs, () => gameEngine.ctx.host.removeRoot(prefsRoot)),
+              )
+              gameEngine.ctx.host.addRoot(prefsRoot)
+            },
           },
         }),
       },
@@ -745,4 +761,34 @@ function createPropertyValueCreator (
       refEquals,
     )
   }
+}
+
+function createPrefsModel (prefs :Preferences, close :Action) {
+  const activeCategory = Mutable.local("general")
+  return new Model({
+    title: Value.constant("Preferences"),
+    close,
+    activeCategory,
+    prefsCategoryModel: makeModel(Value.constant(Object.keys(prefs)), key => {
+      const category = prefs[key]
+      return {
+        key: Value.constant(key),
+        name: Value.constant(category.title),
+        propertiesModel: mapModel(
+          category.propertiesMeta.keysValue,
+          category.propertiesMeta,
+          (value, key) => {
+            const propertyName = key as string
+            const property = category.getProperty(propertyName)
+            return {
+              name: Value.constant(propertyName),
+              type: value.map(value => value.type),
+              constraints: value.map(value => value.constraints),
+              value: property,
+            }
+          },
+        ),
+      }
+    })
+  })
 }

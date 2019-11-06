@@ -296,3 +296,69 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
     },
   }
 }
+
+export function createPrefsConfig (minSize :Value<dim2>) :RootConfig {
+  return {
+    type: "root",
+    scale: new Scale(window.devicePixelRatio),
+    autoSize: true,
+    minSize,
+    contents: {
+      type: "box",
+      scopeId: "modalShade",
+      contents: {
+        type: "column",
+        offPolicy: "equalize",
+        contents: [
+          {
+            type: "box",
+            scopeId: "dialogHeader",
+            contents: {
+              type: "row",
+              contents: [
+                {
+                  type: "label",
+                  text: "title",
+                  constraints: {stretch: true},
+                },
+                {
+                  type: "button",
+                  contents: {
+                    type: "box",
+                    scopeId: "closeDialogButton",
+                    contents: {type: "label", text: Value.constant("×")},
+                  },
+                  onClick: "close",
+                },
+              ],
+            },
+            style: {halign: "stretch"},
+          },
+          {
+            type: "box",
+            scopeId: "dialogBody",
+            contents: {
+              type: "tabbedPane",
+              tabElement: {
+                type: "box",
+                contents: {type: "label", scopeId: "tab", text: "name"},
+              },
+              contentElement: {
+                type: "propertyView",
+                gap: 5,
+                scopeId: "prefsProperties",
+                editable: Value.constant(true),
+                offPolicy: "stretch",
+                model: "propertiesModel",
+              },
+              model: "prefsCategoryModel",
+              key: "key",
+              activeKey: "activeCategory",
+            },
+            style: {halign: "stretch", valign: "stretch"},
+          }
+        ],
+      },
+    },
+  }
+}

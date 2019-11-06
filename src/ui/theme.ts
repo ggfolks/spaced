@@ -3,6 +3,8 @@ import {customStyles, customTheme, family} from "tfw/ui/theme"
 const componentHeaderCorner = [5, 5, 0, 0]
 const componentBodyCorner = [0, 0, 5, 5]
 const componentActionButtonCorner = 5
+const dialogHeaderCorner = [5, 5, 0, 0]
+const dialogBodyCorner = [0, 0, 5, 5]
 
 export const UIStyles = customStyles({
   colors: {},
@@ -13,6 +15,7 @@ export const UIStyles = customStyles({
     componentProperty: {family, size: 14},
     addComponent: {family, size: 16},
     stats: {family, size: 16},
+    dialog: {family, size: 16},
   },
   paints: {},
   borders: {
@@ -46,6 +49,17 @@ export const UIStyles = customStyles({
     componentBody: {
       fill: {type: "color", color: "#606060"},
       cornerRadius: componentBodyCorner,
+    },
+    modalShade: {
+      fill: {type: "color", color: "rgba(0, 0, 0, 0.5)"},
+    },
+    dialogHeader: {
+      fill: {type: "color", color: "#404040"},
+      cornerRadius: dialogHeaderCorner,
+    },
+    dialogBody: {
+      fill: {type: "color", color: "#202020"},
+      cornerRadius: dialogBodyCorner,
     },
   },
 })
@@ -119,5 +133,28 @@ export const UITheme = customTheme({
   stats: {
     box: {padding: 10},
     label: {font: "$stats"},
+  },
+  modalShade: {
+    box: {background: "$modalShade"},
+  },
+  dialogHeader: {
+    box: {minWidth: 800, padding: [5, 10, 5, 10], background: "$dialogHeader"},
+    label: {font: "$dialog"},
+  },
+  dialogBody: {
+    box: {minHeight: 600, background: "$dialogBody"},
+    label: {font: "$dialog"},
+  },
+  closeDialogButton: {
+    label: {
+      font: "$dialog",
+      fill: "$darkGray",
+      hovered: {fill: "$mediumGray"},
+      hoverFocused: {fill: "$mediumGray"},
+      pressed: {fill: "$lightGray"},
+    },
+  },
+  prefsProperties: {
+    label: {font: "$dialog", fill: "$lightGray"},
   },
 })

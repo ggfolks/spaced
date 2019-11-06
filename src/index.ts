@@ -1,7 +1,7 @@
 import {loadImage} from "tfw/core/assets"
 import {Loop} from "tfw/core/clock"
 import {refEquals} from "tfw/core/data"
-import {dim2, rect, vec2zero} from "tfw/core/math"
+import {dim2, rect} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {Disposer} from "tfw/core/util"
 import {TypeScriptGameEngine} from "tfw/engine/typescript/game"
@@ -41,9 +41,7 @@ disposer.add(new ThreeRenderEngine(gameEngine))
 disposer.add(new CannonPhysicsEngine(gameEngine))
 
 const ui = new UI(UITheme, UIStyles, {resolve: loadImage})
-const uiRoot = ui.createRoot(createUIConfig(rootSize), createUIModel(gameEngine))
-const rootBounds = rootSize.map(size => rect.fromPosSize(vec2zero, size))
-disposer.add(uiRoot.bindOrigin(rootBounds, "center", "center", "center", "center"))
+const uiRoot = ui.createRoot(createUIConfig(rootSize), createUIModel(rootSize, gameEngine, ui))
 const host = new HTMLHost(root)
 host.addRoot(uiRoot)
 
