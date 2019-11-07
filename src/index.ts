@@ -1,8 +1,8 @@
 import {loadImage} from "tfw/core/assets"
 import {Loop} from "tfw/core/clock"
-import {refEquals} from "tfw/core/data"
-import {dim2, rect} from "tfw/core/math"
-import {Mutable, Value} from "tfw/core/react"
+import {rect} from "tfw/core/math"
+import {Mutable} from "tfw/core/react"
+import {windowSize} from "tfw/core/ui"
 import {Disposer} from "tfw/core/util"
 import {TypeScriptGameEngine} from "tfw/engine/typescript/game"
 import {ThreeRenderEngine} from "tfw/engine/typescript/three/render"
@@ -16,20 +16,7 @@ import {UIStyles, UITheme} from "./ui/theme"
 
 const root = document.getElementById("root")
 if (!root) throw new Error("No root?")
-const rootSize = Value.deriveValue(
-  refEquals,
-  dispatch => {
-    let size = dim2.fromValues(root.clientWidth, root.clientHeight)
-    const listener = () => {
-      const oldSize = size
-      size = dim2.fromValues(root.clientWidth, root.clientHeight)
-      dispatch(size, oldSize)
-    }
-    window.addEventListener("resize", listener)
-    return () => window.removeEventListener("resize", listener)
-  },
-  () => dim2.fromValues(root.clientWidth, root.clientHeight),
-)
+const rootSize = windowSize(window)
 
 const disposer = new Disposer()
 document.body.addEventListener("unload", () => disposer.dispose())
