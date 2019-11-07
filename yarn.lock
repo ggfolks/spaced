@@ -382,10 +382,10 @@
   dependencies:
     defer-to-connect "^1.0.1"
 
-"@tfwdev/platform@^0.2.0-snapshot":
-  version "0.2.0-snapshot.46"
-  resolved "https://build1.tfw.dev:443/registry/@tfwdev%2fplatform/-/platform-0.2.0-snapshot.46.tgz#610b0d549dddd52cf30bae7cff40cb30dcd58142"
-  integrity sha512-7hfx5R920VMRJrZGlFUO9J2jwbaRxSPY+jbybTJOxyBFa2TYHx2zheM4ZA3iCDXMs/U2JIHL1QCDmxbQkH0wxg==
+"@tfwdev/platform@^0.2.0-snapshot.99":
+  version "0.2.0-snapshot.99"
+  resolved "https://build1.tfw.dev:443/registry/@tfwdev%2fplatform/-/platform-0.2.0-snapshot.99.tgz#9c18e5ba248775b8d2f1b61297bb3cd592f81cfe"
+  integrity sha512-BAxBOqPtU6ZOHxycuGkBVB/o5WP3DuJnZn/OSOvkp+uUJlUzarvpcQDHL3motIRH1NtgvtGU5pFvt9K1eRfUsw==
   dependencies:
     "@types/cannon" "^0.1.4"
     "@types/gl-matrix" "^2.4.5"
