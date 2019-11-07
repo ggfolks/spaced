@@ -138,11 +138,11 @@ export const UITheme = customTheme({
     box: {background: "$modalShade"},
   },
   dialogHeader: {
-    box: {minWidth: 800, padding: [5, 10, 5, 10], background: "$dialogHeader"},
+    box: {minWidth: 600, padding: [5, 10, 5, 10], background: "$dialogHeader"},
     label: {font: "$dialog"},
   },
   dialogBody: {
-    box: {minHeight: 600, background: "$dialogBody"},
+    box: {minHeight: 400, background: "$dialogBody"},
     label: {font: "$dialog"},
   },
   closeDialogButton: {
@@ -153,6 +153,9 @@ export const UITheme = customTheme({
       hoverFocused: {fill: "$mediumGray"},
       pressed: {fill: "$lightGray"},
     },
+  },
+  prefsContainer: {
+    box: {margin: 10},
   },
   prefsProperties: {
     label: {font: "$dialog", fill: "$lightGray"},

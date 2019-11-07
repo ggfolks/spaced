@@ -1,16 +1,64 @@
+import {Mutable} from "tfw/core/react"
 import {GameEngine} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
+import {JavaScript} from "tfw/engine/util"
 import {TypeScriptConfigurable, registerConfigurableType} from "tfw/engine/typescript/game"
-import {createEllipsisConfig, setPropertyConfigCreator} from "tfw/ui/property"
+import {createEllipsisConfig, setCustomUrlSelector, setPropertyConfigCreator} from "tfw/ui/property"
 
 abstract class PrefsCategory extends TypeScriptConfigurable {
   abstract readonly title :string
+
+  init () {
+    super.init()
+    // read the initial values from local storage, update on change
+    for (const [property, meta] of this.propertiesMeta) {
+      if (meta.constraints.readonly || meta.constraints.transient) continue
+      const storageKey = this.type + "/" + property
+      const value = localStorage.getItem(storageKey)
+      if (value !== null) this[property] = JavaScript.parse(value)
+      this.getProperty(property).onChange(
+        value => localStorage.setItem(storageKey, JavaScript.stringify(value)),
+      )
+    }
+  }
 }
 
 class GeneralPrefs extends PrefsCategory {
   readonly title = "General"
 
-  @property("directory") test = ""
+  @property("directory") rootDirectory = ""
+
+  init () {
+    super.init()
+
+    // when we have a root directory, we store URLs relative to it
+    this.getProperty<string>("rootDirectory").onValue(rootDirectory => {
+      if (!rootDirectory) {
+        setCustomUrlSelector(undefined)
+        return
+      }
+      const normalizedRoot = rootDirectory.endsWith("/") ? rootDirectory : rootDirectory + "/"
+      setCustomUrlSelector(async value => {
+        const electron = window.require("electron").remote
+        const currentPath = value.current
+        const result = await electron.dialog.showOpenDialog(
+          electron.getCurrentWindow(),
+          {
+            defaultPath: currentPath.startsWith("/") ? currentPath : normalizedRoot + currentPath,
+            properties: ["openFile"],
+          },
+        )
+        if (result.filePaths.length > 0) {
+          const absPath = result.filePaths[0]
+          value.update(
+            absPath.startsWith(normalizedRoot)
+              ? absPath.substring(normalizedRoot.length)
+              : absPath,
+          )
+        }
+      })
+    })
+  }
 }
 registerConfigurableType("prefsCategory", [], "general", GeneralPrefs)
 
@@ -26,10 +74,15 @@ export class Preferences {
 }
 
 setPropertyConfigCreator("directory", (model, editable) => {
-  return createEllipsisConfig(model, editable, () => {
-    if (window.require) {
-      const electron = window.require("electron").remote
-      electron.dialog.showOpenDialog({properties: ["openDirectory"]})
-    }
+  // hide the entire property line if we're not running in Electron
+  if (!window.require) return {type: "spacer", width: 0, height: 0}
+  const value = model.resolve<Mutable<string>>("value")
+  return createEllipsisConfig(model, editable, async () => {
+    const electron = window.require("electron").remote
+    const result = await electron.dialog.showOpenDialog(
+      electron.getCurrentWindow(),
+      {defaultPath: value.current, properties: ["openDirectory"]},
+    )
+    if (result.filePaths.length > 0) value.update(result.filePaths[0])
   })
 })
