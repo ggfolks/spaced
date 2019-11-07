@@ -39,7 +39,7 @@ class GeneralPrefs extends PrefsCategory {
         setCustomUrlSelector(undefined)
         return
       }
-      let normalizedRoot = rootDirectory.replace(/\\/g, "/")
+      let normalizedRoot = toForwardSlashes(rootDirectory)
       if (!normalizedRoot.endsWith("/")) normalizedRoot = normalizedRoot + "/"
       setBaseUrl("file:" + normalizedRoot)
       setCustomUrlSelector(async value => {
@@ -53,11 +53,11 @@ class GeneralPrefs extends PrefsCategory {
           },
         )
         if (result.filePaths.length > 0) {
-          const absPath = result.filePaths[0]
+          const absPath = toForwardSlashes(result.filePaths[0])
           value.update(
             absPath.startsWith(normalizedRoot)
               ? absPath.substring(normalizedRoot.length)
-              : absPath,
+              : "file:" + absPath,
           )
         }
       })
@@ -65,6 +65,10 @@ class GeneralPrefs extends PrefsCategory {
   }
 }
 registerConfigurableType("prefsCategory", [], "general", GeneralPrefs)
+
+function toForwardSlashes (path :string) :string {
+  return path.replace(/\\/g, "/")
+}
 
 export class Preferences {
   readonly general :GeneralPrefs
