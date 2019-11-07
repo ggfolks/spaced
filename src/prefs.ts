@@ -1,3 +1,4 @@
+import {setBaseUrl} from "tfw/core/assets"
 import {Mutable} from "tfw/core/react"
 import {GameEngine} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
@@ -34,10 +35,13 @@ class GeneralPrefs extends PrefsCategory {
     // when we have a root directory, we store URLs relative to it
     this.getProperty<string>("rootDirectory").onValue(rootDirectory => {
       if (!rootDirectory) {
+        setBaseUrl(location.origin + location.pathname)
         setCustomUrlSelector(undefined)
         return
       }
-      const normalizedRoot = rootDirectory.endsWith("/") ? rootDirectory : rootDirectory + "/"
+      let normalizedRoot = rootDirectory.replace(/\\/g, "/")
+      if (!normalizedRoot.endsWith("/")) normalizedRoot = normalizedRoot + "/"
+      setBaseUrl("file:" + normalizedRoot)
       setCustomUrlSelector(async value => {
         const electron = window.require("electron").remote
         const currentPath = value.current

@@ -7,7 +7,8 @@ exports.init = (url) => {
       height: 1024,
       autoHideMenuBar: true,
       webPreferences: {
-        nodeIntegration: true
+        nodeIntegration: true,
+        webSecurity: false
       }
     })
     window.loadURL(url)
