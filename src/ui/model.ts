@@ -618,6 +618,9 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
       meshRenderer: {
         materialConfig: {
           type: "shader",
+          transparent: true,
+          alphaTest: 0.5,
+          side: "both",
           vertexShaderGraphConfig: {},
           fragmentShaderGraphConfig: {},
         },
