@@ -534,7 +534,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         const componentType = key as string
         const id = selection.values().next().value
         const component = gameEngine.gameObjects.require(id).requireComponent(componentType)
-        const properties = component.propertiesMeta
         return new Model({
           type: Value.constant(key),
           removable: Value.constant(component.removable),
@@ -551,30 +550,19 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
               }),
             },
           } : {}),
-          propertiesModel: mapModel(properties.keysValue.map(keys => {
-            const filteredKeys :string[] = []
-            for (const key of keys) {
-              const constraints = properties.require(key).constraints
-              if (!constraints.transient && constraints.editable !== false) filteredKeys.push(key)
+          propertiesModel: makePropertiesModel(
+            component.propertiesMeta,
+            (propertyName, metaValue) => {
+              const property = component.getProperty(propertyName)
+              if (metaValue.current.constraints.readonly) return property
+              return Mutable.deriveMutable(
+                dispatch => property.onChange(dispatch),
+                () => property.current,
+                value => applyToSelection({[componentType]: {[propertyName]: value}}),
+                refEquals,
+              )
             }
-            return filteredKeys
-          }), properties, (value, key) => {
-            const propertyName = key as string
-            const property = component.getProperty(propertyName)
-            return {
-              name: Value.constant(propertyName),
-              type: value.map(value => value.type),
-              constraints: value.map(value => value.constraints),
-              value: value.current.constraints.readonly
-                ? property
-                : Mutable.deriveMutable(
-                  dispatch => property.onChange(dispatch),
-                  () => property.current,
-                  value => applyToSelection({[componentType]: {[propertyName]: value}}),
-                  refEquals,
-                ),
-            }
-          }),
+          ),
         })
       },
     },
