@@ -28,6 +28,8 @@ class GeneralPrefs extends PrefsCategory {
   readonly title = "General"
 
   @property("directory") rootDirectory = ""
+  @property("boolean", {editable: false}) showStats = false
+  @property("boolean", {editable: false}) showEditorObjects = false
 
   init () {
     super.init()

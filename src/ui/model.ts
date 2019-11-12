@@ -13,6 +13,7 @@ import {getCurrentEditNumber} from "tfw/ui/element"
 import {
   Action, Command, Model, ModelData, ModelKey, ElementsModel, dataModel, makeModel, mapModel,
 } from "tfw/ui/model"
+import {makePropertiesModel} from "tfw/ui/property"
 import {UI} from "tfw/ui/ui"
 import {createPrefsConfig} from "./config"
 import {Preferences} from "../prefs"
@@ -204,7 +205,8 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     })
   }
   const componentTypesModel = getCategoryModel(gameEngine.getConfigurableTypeRoot("component"))
-  const showStats = Mutable.local(false)
+  const prefs = new Preferences(gameEngine)
+  const showStats = prefs.general.getProperty("showStats") as Mutable<boolean>
   const statsModel = makeModel(
     gameEngine.renderEngine.stats,
     stat => ({stat: Value.constant(stat)}),
@@ -252,8 +254,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       setIdSet(selection, set)
     },
   }
-
-  const prefs = new Preferences(gameEngine)
 
   return new Model({
     menuBarModel: dataModel({
@@ -777,19 +777,9 @@ function createPrefsModel (prefs :Preferences, close :Action) {
       return {
         key: Value.constant(key),
         name: Value.constant(category.title),
-        propertiesModel: mapModel(
-          category.propertiesMeta.keysValue,
+        propertiesModel: makePropertiesModel(
           category.propertiesMeta,
-          (value, key) => {
-            const propertyName = key as string
-            const property = category.getProperty(propertyName)
-            return {
-              name: Value.constant(propertyName),
-              type: value.map(value => value.type),
-              constraints: value.map(value => value.constraints),
-              value: property,
-            }
-          },
+          propertyName => category.getProperty(propertyName),
         ),
       }
     })
