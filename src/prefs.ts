@@ -16,7 +16,7 @@ abstract class PrefsCategory extends TypeScriptConfigurable {
       if (meta.constraints.readonly || meta.constraints.transient) continue
       const storageKey = this.type + "/" + property
       const value = localStorage.getItem(storageKey)
-      if (value !== null) this[property] = JavaScript.parse(value)
+      if (value !== null) (this as any)[property] = JavaScript.parse(value)
       this.getProperty(property).onChange(
         value => localStorage.setItem(storageKey, JavaScript.stringify(value)),
       )

@@ -469,7 +469,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     updateOrder: (key :string, index :number) => {
       const currentPageKeys = gameEngine.pages.current
       if (currentPageKeys.indexOf(key) === index) return
-      const edit = {edit: {}}
+      const edit = {edit: {} as any}
       if (key === DEFAULT_PAGE) {
         // to reorder the default page, we adjust the order of everything around it
         let order = -1
