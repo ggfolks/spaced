@@ -272,9 +272,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         model: dataModel({
           clearAll: {
             name: Value.constant("Clear All"),
-            action: () => {
-              applyEdit({selection: new Set(), remove: new Set(gameEngine.gameObjects.keys())})
-            },
+            action: resetModel,
           },
           sep: {separator: Value.constant(true)},
           import: {
