@@ -612,7 +612,7 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
       layer: EDITOR_LAYER_MASK,
       transform: {
         localRotation: quat.fromEuler(quat.create(), -90, 0, 0),
-        localScale: vec3.fromValues(1000, 1000, 1),
+        localScale: vec3.fromValues(1000, 1000, 1000),
       },
       meshFilter: {
         meshConfig: {type: "quad"},
