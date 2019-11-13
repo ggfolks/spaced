@@ -255,6 +255,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     },
   }
 
+  const viewNames :PMap<string> = {
+    showEditorObjects: "Editor Objects",
+    showStats: "Stats",
+  }
+
   return new Model({
     menuBarModel: dataModel({
       space: {
@@ -353,14 +358,18 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       },
       view: {
         name: Value.constant("View"),
-        model: dataModel({
-          stats: {
-            name: Value.constant("Stats"),
-            checkable: Value.constant(true),
-            checked: showStats,
-            action: () => showStats.update(!showStats.current),
+        model: makeModel(
+          Value.constant(Object.keys(viewNames)),
+          name => {
+            const checked = prefs.general.getProperty(name) as Mutable<boolean>
+            return {
+              name: Value.constant(viewNames[name]),
+              checkable: Value.constant(true),
+              checked,
+              action: () => checked.update(!checked.current),
+            }
           },
-        }),
+        ),
       },
       object: {
         name: Value.constant("Object"),
