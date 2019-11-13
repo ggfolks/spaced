@@ -138,11 +138,11 @@ export const UITheme = customTheme({
     box: {background: "$modalShade"},
   },
   dialogHeader: {
-    box: {minWidth: 600, padding: [5, 10, 5, 10], background: "$dialogHeader"},
+    box: {padding: [5, 10, 5, 10], background: "$dialogHeader"},
     label: {font: "$dialog"},
   },
   dialogBody: {
-    box: {minHeight: 400, background: "$dialogBody"},
+    box: {preferredWidth: 600, minHeight: 400, background: "$dialogBody"},
     label: {font: "$dialog"},
   },
   closeDialogButton: {
