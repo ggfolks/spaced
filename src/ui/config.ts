@@ -1,9 +1,9 @@
 import {dim2} from "tfw/core/math"
 import {Value} from "tfw/core/react"
 import {Scale} from "tfw/core/ui"
-import {RootConfig} from "tfw/ui/element"
+import {Root} from "tfw/ui/element"
 import {CtrlMask, MetaMask, ShiftMask} from "tfw/ui/keymap"
-import {createDropdownItemConfig} from "tfw/ui/dropdown"
+import {Dropdown} from "tfw/ui/dropdown"
 
 const MenuBarConfig = {
   type: "menuBar",
@@ -15,7 +15,7 @@ const MenuBarConfig = {
       contents: {type: "label", text: "name"},
     },
     // max category depth of two for the moment
-    element: createDropdownItemConfig(2, "menuItem"),
+    element: Dropdown.createItemConfig(2, "menuItem"),
     model: "model",
   },
   model: "menuBarModel",
@@ -80,7 +80,7 @@ const TabbedPaneConfig = {
   constraints: {stretch: true},
 }
 
-export function createUIConfig (minSize :Value<dim2>) :RootConfig {
+export function createUIConfig (minSize :Value<dim2>) :Root.Config {
   return {
     type: "root",
     scale: new Scale(window.devicePixelRatio),
@@ -273,7 +273,7 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
                               scopeId: "addComponentButton",
                               contents: {type: "label", text: "componentTypeLabel"},
                             },
-                            element: createDropdownItemConfig(
+                            element: Dropdown.createItemConfig(
                               2,
                               "dropdownItem",
                               true,
@@ -297,7 +297,7 @@ export function createUIConfig (minSize :Value<dim2>) :RootConfig {
   }
 }
 
-export function createPrefsConfig (minSize :Value<dim2>) :RootConfig {
+export function createPrefsConfig (minSize :Value<dim2>) :Root.Config {
   return {
     type: "root",
     scale: new Scale(window.devicePixelRatio),
