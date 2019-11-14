@@ -6,8 +6,7 @@ import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
-  DEFAULT_PAGE, EDITOR_LAYER_MASK, GameEngine, GameObject, GameObjectConfig, PrimitiveTypes,
-  SpaceConfig,
+  DEFAULT_PAGE, EDITOR_LAYER, GameEngine, GameObject, GameObjectConfig, PrimitiveTypes, SpaceConfig,
 } from "tfw/engine/game"
 import {JavaScript} from "tfw/engine/util"
 import {getCurrentEditNumber} from "tfw/ui/element"
@@ -132,7 +131,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     return {
       keys: Value.join2(keys, showEditorObjects).map(([keys, showEditorObjects]) => {
         if (showEditorObjects) return keys
-        return keys.filter(key => gameEngine.gameObjects.require(key).layer !== EDITOR_LAYER_MASK)
+        return keys.filter(key => gameEngine.gameObjects.require(key).layer !== EDITOR_LAYER)
       }),
       resolve: (key :ModelKey) => {
         let model = models.get(key)
@@ -296,7 +295,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
             name: Value.constant("Export..."),
             action: () => {
               const file = new File(
-                [JavaScript.stringify(gameEngine.createConfig(~EDITOR_LAYER_MASK))],
+                [JavaScript.stringify(gameEngine.createConfig(~(1 << EDITOR_LAYER)))],
                 "space.config.js",
                 {type: "application/octet-stream"},
               )
@@ -348,7 +347,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           },
           sep3: {separator: Value.constant(true)},
           preferences: {
-            name: Value.constant("Preferences"),
+            name: Value.constant("Preferences..."),
             action: () => {
               const prefsRoot = ui.createRoot(
                 createPrefsConfig(minSize),
@@ -598,7 +597,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
 function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
   return {
     editorCamera: {
-      layer: EDITOR_LAYER_MASK,
+      layer: EDITOR_LAYER,
       transform: {
         localPosition: vec3.fromValues(0, 5, 5),
         localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
@@ -609,7 +608,7 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
       },
     },
     editorGrid: {
-      layer: EDITOR_LAYER_MASK,
+      layer: EDITOR_LAYER,
       transform: {
         localRotation: quat.fromEuler(quat.create(), -90, 0, 0),
         localScale: vec3.fromValues(1000, 1000, 1000),
@@ -629,11 +628,11 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
       },
     },
     editorAmbient: {
-      layer: EDITOR_LAYER_MASK,
+      layer: EDITOR_LAYER,
       light: {color: Color.fromRGB(0.25, 0.25, 0.25)},
     },
     editorDirectional: {
-      layer: EDITOR_LAYER_MASK,
+      layer: EDITOR_LAYER,
       transform: {localPosition: vec3.fromValues(1, 1, 1)},
       light: {lightType: "directional"},
     },
