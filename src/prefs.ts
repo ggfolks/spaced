@@ -4,7 +4,7 @@ import {GameEngine} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
 import {JavaScript} from "tfw/engine/util"
 import {TypeScriptConfigurable, registerConfigurableType} from "tfw/engine/typescript/game"
-import {createEllipsisConfig, setCustomUrlSelector, setPropertyConfigCreator} from "tfw/ui/property"
+import {Property} from "tfw/ui/property"
 
 abstract class PrefsCategory extends TypeScriptConfigurable {
   abstract readonly title :string
@@ -38,13 +38,13 @@ class GeneralPrefs extends PrefsCategory {
     this.getProperty<string>("rootDirectory").onValue(rootDirectory => {
       if (!rootDirectory) {
         setBaseUrl(location.origin + location.pathname)
-        setCustomUrlSelector(undefined)
+        Property.setCustomUrlSelector(undefined)
         return
       }
       let normalizedRoot = toForwardSlashes(rootDirectory)
       if (!normalizedRoot.endsWith("/")) normalizedRoot = normalizedRoot + "/"
       setBaseUrl("file:" + normalizedRoot)
-      setCustomUrlSelector(async value => {
+      Property.setCustomUrlSelector(async value => {
         const electron = window.require("electron").remote
         const currentPath = value.current
         const result = await electron.dialog.showOpenDialog(
@@ -83,11 +83,11 @@ export class Preferences {
   }
 }
 
-setPropertyConfigCreator("directory", (model, editable) => {
+Property.setConfigCreator("directory", (model, editable) => {
   // hide the entire property line if we're not running in Electron
   if (!window.require) return {type: "spacer", width: 0, height: 0}
   const value = model.resolve<Mutable<string>>("value")
-  return createEllipsisConfig(model, editable, async () => {
+  return Property.createEllipsisConfig(model, editable, async () => {
     const electron = window.require("electron").remote
     const result = await electron.dialog.showOpenDialog(
       electron.getCurrentWindow(),

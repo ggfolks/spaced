@@ -13,7 +13,7 @@ import {getCurrentEditNumber} from "tfw/ui/element"
 import {
   Action, Command, Model, ModelData, ModelKey, ElementsModel, dataModel, makeModel, mapModel,
 } from "tfw/ui/model"
-import {makePropertiesModel} from "tfw/ui/property"
+import {Property} from "tfw/ui/property"
 import {UI} from "tfw/ui/ui"
 import {createPrefsConfig} from "./config"
 import {Preferences} from "../prefs"
@@ -561,7 +561,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
               }),
             },
           } : {}),
-          propertiesModel: makePropertiesModel(
+          propertiesModel: Property.makeModel(
             component.propertiesMeta,
             (propertyName, metaValue) => {
               const property = component.getProperty(propertyName)
@@ -780,7 +780,7 @@ function createPrefsModel (prefs :Preferences, close :Action) {
       return {
         key: Value.constant(key),
         name: Value.constant(category.title),
-        propertiesModel: makePropertiesModel(
+        propertiesModel: Property.makeModel(
           category.propertiesMeta,
           propertyName => category.getProperty(propertyName),
         ),
