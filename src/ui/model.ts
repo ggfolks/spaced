@@ -216,7 +216,59 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     stat => ({stat: Value.constant(stat)}),
   )
 
+  let electronActions :PMap<Command> = {}
+  let openModel :ModelData = {}
+  let saveModel :ModelData = {}
+  let quitModel :ModelData = {}
+  if (window.require) {
+    const electron = window.require("electron").remote
+    electronActions = {
+      open: new Command(() => {
+
+      }),
+      save: new Command(() => {
+
+      }),
+      saveAs: new Command(() => {
+
+      }),
+      quit: new Command(() => {
+        electron.process.exit()
+      }),
+    }
+    openModel = {
+      open: {
+        name: Value.constant("Open Space..."),
+        action: electronActions.open,
+        shortcut: Value.constant("open"),
+      },
+    }
+    saveModel = {
+      save: {
+        name: Value.constant("Save"),
+        action: electronActions.save,
+        shortcut: Value.constant("save"),
+      },
+      saveAs: {
+        name: Value.constant("Save As..."),
+        action: electronActions.saveAs,
+        shortcut: Value.constant("saveAs"),
+      },
+      sep2: {separator: Value.constant(true)},
+    }
+    quitModel = {
+      sep3: {separator: Value.constant(true)},
+      quit: {
+        name: Value.constant("Quit"),
+        action: electronActions.quit,
+        shortcut: Value.constant("quit"),
+      },
+    }
+  }
+
   const menuActions = {
+    new: new Command(resetModel),
+    ...electronActions,
     undo: new Command(() => {
       const oldSelection = new Set(selection)
       const edit = undoStack.pop()!
@@ -269,11 +321,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       space: {
         name: Value.constant("Space"),
         model: dataModel({
-          clearAll: {
-            name: Value.constant("Clear All"),
-            action: resetModel,
+          new: {
+            name: Value.constant("New Space"),
+            action: menuActions.new,
+            shortcut: Value.constant("new"),
           },
-          sep: {separator: Value.constant(true)},
+          ...openModel,
+          sep1: {separator: Value.constant(true)},
+          ...saveModel,
           import: {
             name: Value.constant("Import..."),
             action: () => {
@@ -303,6 +358,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
               // TODO: call revokeObjectURL when finished with download
             },
           },
+          ...quitModel,
         }),
       },
       edit: {

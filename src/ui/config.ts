@@ -89,6 +89,16 @@ export function createUIConfig (minSize :Value<dim2>) :Root.Config {
     keymap: {
       // TODO: use something that abstracts over the fact that on Mac we use Meta for many things
       // versus Ctrl on Linux & Windows
+      KeyN: {[CtrlMask]: "new", [MetaMask]: "new"},
+      KeyO: {[CtrlMask]: "open", [MetaMask]: "open"},
+      KeyS: {
+        [CtrlMask]: "save",
+        [MetaMask]: "save",
+        [CtrlMask|ShiftMask]: "saveAs",
+        [MetaMask|ShiftMask]: "saveAs",
+      },
+      KeyQ: {[CtrlMask]: "quit", [MetaMask]: "quit"},
+
       KeyX: {[CtrlMask]: "cut", [MetaMask]: "cut"},
       KeyC: {[CtrlMask]: "copy", [MetaMask]: "copy"},
       KeyV: {[CtrlMask]: "paste", [MetaMask]: "paste"},
