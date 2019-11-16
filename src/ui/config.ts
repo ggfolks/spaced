@@ -14,8 +14,7 @@ const MenuBarConfig = {
       type: "box",
       contents: {type: "label", text: "name"},
     },
-    // max category depth of two for the moment
-    element: Dropdown.createItemConfig(2, "menuItem"),
+    element: Dropdown.createItemConfig("menuItem"),
     model: "model",
   },
   model: "menuBarModel",
@@ -284,7 +283,6 @@ export function createUIConfig (minSize :Value<dim2>) :Root.Config {
                               contents: {type: "label", text: "componentTypeLabel"},
                             },
                             element: Dropdown.createItemConfig(
-                              2,
                               "dropdownItem",
                               true,
                               "addComponentItem",
