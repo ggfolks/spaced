@@ -350,10 +350,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         action: electronActions.revert,
         shortcut: Value.constant("revert"),
       },
-      sep2: {separator: Value.constant(true)},
+      separator2: {},
     }
     quitModel = {
-      sep3: {separator: Value.constant(true)},
+      separator3: {},
       quit: {
         name: Value.constant("Quit"),
         action: electronActions.quit,
@@ -432,7 +432,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
             shortcut: Value.constant("new"),
           },
           ...openModel,
-          sep1: {separator: Value.constant(true)},
+          separator1: {},
           ...saveModel,
           import: {
             name: Value.constant("Import..."),
@@ -503,7 +503,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
             action: menuActions.redo,
             shortcut: Value.constant("redo"),
           },
-          sep1: {separator: Value.constant(true)},
+          separator1: {},
           cut: {
             name: Value.constant("Cut"),
             action: menuActions.cut,
@@ -524,13 +524,13 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
             action: menuActions.delete,
             shortcut: Value.constant("delete"),
           },
-          sep2: {separator: Value.constant(true)},
+          separator2: {},
           selectAll: {
             name: Value.constant("Select All"),
             action: menuActions.selectAll,
             shortcut: Value.constant("selectAll"),
           },
-          sep3: {separator: Value.constant(true)},
+          separator3: {},
           preferences: {
             name: Value.constant("Preferences..."),
             action: () => {
