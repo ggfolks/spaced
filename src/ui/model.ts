@@ -51,10 +51,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const models = new Map<ModelKey, Model>()
   const pageEditor = createGameObjectEditor(gameEngine, models)
   const path = Mutable.local("")
-  const activeEditNumber = Mutable.local(0)
-  const savedEditNumber = Mutable.local(0)
+  const activeVersion = Mutable.local(0)
+  const savedVersion = Mutable.local(0)
   const changed = Value
-    .join(activeEditNumber, savedEditNumber)
+    .join(activeVersion, savedVersion)
     .map(([active, saved]) => active !== saved)
   const getPathName = () => (path.current === "") ? "untitled.config.js" : path.current
   Value.join2(path, changed).onValue(([path, changed]) => {
@@ -70,11 +70,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const undoStack :FullGameObjectEdit[] = []
   const redoStack :FullGameObjectEdit[] = []
   const editorObjects = createEditorObjects(gameEngine)
+  let currentVersion = 0
   const resetModel = () => {
-    path.update("")
-    const currentEditNumber = getCurrentEditNumber()
-    activeEditNumber.update(currentEditNumber)
-    savedEditNumber.update(currentEditNumber)
+    activeVersion.update(currentVersion)
+    savedVersion.update(currentVersion)
     expanded.clear()
     selection.clear()
     undoStack.length = 0
@@ -83,6 +82,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     gameEngine.createGameObjects(editorObjects)
   }
   resetModel()
+  const loadConfig = (config :SpaceConfig) => {
+    resetModel()
+    gameEngine.createGameObjects(config)
+  }
   gameEngine.activePage.onChange(() => selection.clear())
   const applyEdit = (edit :GameObjectEdit) => {
     const oldActivePage = gameEngine.activePage.current
@@ -94,7 +97,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     if (edit.expanded) setIdSet(expanded, edit.expanded)
     const lastEdit = undoStack[undoStack.length - 1]
     const currentEditNumber = getCurrentEditNumber()
-    activeEditNumber.update(currentEditNumber)
     if (lastEdit && lastEdit.editNumber === currentEditNumber) {
       // merge into last edit
       for (const id in reverseEdit.add) {
@@ -135,6 +137,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     redoStack.length = 0
     canUndo.update(true)
     canRedo.update(false)
+    activeVersion.update(++currentVersion)
   }
   const applyToSelection = (perObjectEdit :PMap<any>) => {
     const edit :SpaceEditConfig = {}
@@ -241,9 +244,26 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     {name: "Spaces", extensions: ["config.js"]},
     {name: "All Files", extensions: ["*"]},
   ]
+  let saveTo :(path :string) => void = Noop
+  const createSpaceConfigString =
+    () => JavaScript.stringify(gameEngine.createConfig(~(1 << EDITOR_LAYER)))
+  let loadFrom :(path :string) => void = Noop
   if (window.require) {
+    const fs = window.require("fs")
+    saveTo = path => {
+      fs.writeFile(path, createSpaceConfigString(), (error? :Error) => {
+        if (error) console.warn(error)
+      })
+    }
+    loadFrom = path => {
+      fs.readFile(path, "utf8", (error :Error|undefined, data :string) => {
+        if (error) console.warn(error)
+        else loadConfig(JavaScript.parse(data))
+      })
+    }
     const save = () => {
-      savedEditNumber.update(activeEditNumber.current)
+      saveTo(path.current)
+      savedVersion.update(activeVersion.current)
     }
     const saveAs = async () => {
       const result = await electron.dialog.showSaveDialog(
@@ -275,7 +295,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         )
         if (result.filePaths.length > 0) {
           path.update(result.filePaths[0])
-          resetModel()
+          loadFrom(path.current)
         }
       }),
       save: new Command(() => {
@@ -283,9 +303,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         else saveAs()
       }),
       saveAs: new Command(saveAs),
-      revert: new Command(() => {
-
-      }, Value.join2(path, changed).map(([path, changed]) => !!path && changed)),
+      revert: new Command(
+        () => loadFrom(path.current),
+        Value.join2(path, changed).map(([path, changed]) => !!path && changed),
+      ),
       quit: new Command(async () => {
         if (changed.current) {
           const result = await electron.dialog.showMessageBox(
@@ -339,10 +360,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   }
 
   const menuActions = {
-    new: new Command(resetModel),
+    new: new Command(() => {
+      path.update("")
+      resetModel()
+    }),
     ...electronActions,
     undo: new Command(() => {
       const oldSelection = new Set(selection)
+      const oldExpanded = new Set(expanded)
       const edit = undoStack.pop()!
       gameEngine.activePage.update(edit.activePage)
       const reverseEdit = pageEditor(edit)
@@ -350,12 +375,15 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       setIdSet(expanded, edit.expanded)
       reverseEdit.activePage = edit.activePage
       reverseEdit.selection = oldSelection
+      reverseEdit.expanded = oldExpanded
       redoStack.push(reverseEdit)
       canRedo.update(true)
       canUndo.update(undoStack.length > 0)
+      activeVersion.update(activeVersion.current - 1)
     }, canUndo),
     redo: new Command(() => {
       const oldSelection = new Set(selection)
+      const oldExpanded = new Set(expanded)
       const edit = redoStack.pop()!
       gameEngine.activePage.update(edit.activePage)
       const reverseEdit = pageEditor(edit)
@@ -363,9 +391,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       setIdSet(expanded, edit.expanded)
       reverseEdit.activePage = edit.activePage
       reverseEdit.selection = oldSelection
+      reverseEdit.expanded = oldExpanded
       undoStack.push(reverseEdit)
       canUndo.update(true)
       canRedo.update(redoStack.length > 0)
+      activeVersion.update(activeVersion.current + 1)
     }, canRedo),
     cut: new Command(() => {
       copySelected()
@@ -414,9 +444,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                   filters,
                 },
               )
-              if (result.filePaths.length > 0) {
-
-              }
+              if (result.filePaths.length > 0) loadFrom(result.filePaths[0])
             } : () => {
               const input = document.createElement("input")
               input.setAttribute("type", "file")
@@ -425,7 +453,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                 if (!input.files || input.files.length === 0) return
                 const reader = new FileReader()
                 reader.onload = () => {
-                  JavaScript.parse(reader.result as string)
+                  loadConfig(JavaScript.parse(reader.result as string))
                 }
                 reader.readAsText(input.files[0])
               })
@@ -445,12 +473,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                   filters,
                 },
               )
-              if (result.filePath) {
-
-              }
+              if (result.filePath) saveTo(result.filePath)
             } : () => {
               const file = new File(
-                [JavaScript.stringify(gameEngine.createConfig(~(1 << EDITOR_LAYER)))],
+                [createSpaceConfigString()],
                 "space.config.js",
                 {type: "application/octet-stream"},
               )
