@@ -41,6 +41,8 @@ interface FullGameObjectEdit extends GameObjectEdit {
   remove :Set<string>
 }
 
+const electron = window.require && window.require("electron").remote
+
 export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui :UI) {
   const getOrder = (id :string) => {
     if (id === DEFAULT_PAGE) return 0
@@ -48,6 +50,16 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   }
   const models = new Map<ModelKey, Model>()
   const pageEditor = createGameObjectEditor(gameEngine, models)
+  const path = Mutable.local("")
+  const activeEditNumber = Mutable.local(0)
+  const savedEditNumber = Mutable.local(0)
+  const changed = Value
+    .join(activeEditNumber, savedEditNumber)
+    .map(([active, saved]) => active !== saved)
+  const getPathName = () => (path.current === "") ? "untitled.config.js" : path.current
+  Value.join2(path, changed).onValue(([path, changed]) => {
+    document.title = `${changed ? "*" : ""}${getPathName()} — Spaced`
+  })
   const selection = MutableSet.local<string>()
   const haveSelection = selection.fold(false, (value, set) => set.size > 0)
   const selectionArray = selection.fold<string[]>([], (value, set) => Array.from(set))
@@ -59,6 +71,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const redoStack :FullGameObjectEdit[] = []
   const editorObjects = createEditorObjects(gameEngine)
   const resetModel = () => {
+    path.update("")
+    const currentEditNumber = getCurrentEditNumber()
+    activeEditNumber.update(currentEditNumber)
+    savedEditNumber.update(currentEditNumber)
     expanded.clear()
     selection.clear()
     undoStack.length = 0
@@ -78,6 +94,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     if (edit.expanded) setIdSet(expanded, edit.expanded)
     const lastEdit = undoStack[undoStack.length - 1]
     const currentEditNumber = getCurrentEditNumber()
+    activeEditNumber.update(currentEditNumber)
     if (lastEdit && lastEdit.editNumber === currentEditNumber) {
       // merge into last edit
       for (const id in reverseEdit.add) {
@@ -220,19 +237,69 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   let openModel :ModelData = {}
   let saveModel :ModelData = {}
   let quitModel :ModelData = {}
+  const filters = [
+    {name: "Spaces", extensions: ["config.js"]},
+    {name: "All Files", extensions: ["*"]},
+  ]
   if (window.require) {
-    const electron = window.require("electron").remote
+    const save = () => {
+      savedEditNumber.update(activeEditNumber.current)
+    }
+    const saveAs = async () => {
+      const result = await electron.dialog.showSaveDialog(
+        electron.getCurrentWindow(),
+        {
+          title: "Save As",
+          defaultPath: getPathName(),
+          buttonLabel: "Save",
+          properties: ["openFile", "promptToCreate"],
+          filters,
+        },
+      )
+      if (result.filePath) {
+        path.update(result.filePath)
+        save()
+      }
+    }
     electronActions = {
-      open: new Command(() => {
-
+      open: new Command(async () => {
+        const result = await electron.dialog.showOpenDialog(
+          electron.getCurrentWindow(),
+          {
+            title: "Open Space",
+            defaultPath: path.current,
+            buttonLabel: "Open",
+            properties: ["openFile"],
+            filters,
+          },
+        )
+        if (result.filePaths.length > 0) {
+          path.update(result.filePaths[0])
+          resetModel()
+        }
       }),
       save: new Command(() => {
-
+        if (path.current) save()
+        else saveAs()
       }),
-      saveAs: new Command(() => {
+      saveAs: new Command(saveAs),
+      revert: new Command(() => {
 
-      }),
-      quit: new Command(() => {
+      }, Value.join2(path, changed).map(([path, changed]) => !!path && changed)),
+      quit: new Command(async () => {
+        if (changed.current) {
+          const result = await electron.dialog.showMessageBox(
+            electron.getCurrentWindow(),
+            {
+              type: "question",
+              buttons: ["Cancel", "Quit"],
+              defaultId: 1,
+              title: "Confirm Quit",
+              message: "Are you sure you want to quit without saving?",
+            },
+          )
+          if (!result) return
+        }
         electron.process.exit()
       }),
     }
@@ -253,6 +320,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         name: Value.constant("Save As..."),
         action: electronActions.saveAs,
         shortcut: Value.constant("saveAs"),
+      },
+      revert: {
+        name: Value.constant("Revert"),
+        action: electronActions.revert,
+        shortcut: Value.constant("revert"),
       },
       sep2: {separator: Value.constant(true)},
     }
@@ -331,7 +403,21 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           ...saveModel,
           import: {
             name: Value.constant("Import..."),
-            action: () => {
+            action: electron ? async () => {
+              const result = await electron.dialog.showOpenDialog(
+                electron.getCurrentWindow(),
+                {
+                  title: "Import",
+                  defaultPath: path.current,
+                  buttonLabel: "Import",
+                  properties: ["openFile"],
+                  filters,
+                },
+              )
+              if (result.filePaths.length > 0) {
+
+              }
+            } : () => {
               const input = document.createElement("input")
               input.setAttribute("type", "file")
               input.setAttribute("accept", "application/javascript")
@@ -348,7 +434,21 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           },
           export: {
             name: Value.constant("Export..."),
-            action: () => {
+            action: electron ? async () => {
+              const result = await electron.dialog.showSaveDialog(
+                electron.getCurrentWindow(),
+                {
+                  title: "Export",
+                  defaultPath: path.current,
+                  buttonLabel: "Export",
+                  properties: ["openFile", "promptToCreate"],
+                  filters,
+                },
+              )
+              if (result.filePath) {
+
+              }
+            } : () => {
               const file = new File(
                 [JavaScript.stringify(gameEngine.createConfig(~(1 << EDITOR_LAYER)))],
                 "space.config.js",

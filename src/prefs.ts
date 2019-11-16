@@ -24,6 +24,8 @@ abstract class PrefsCategory extends TypeScriptConfigurable {
   }
 }
 
+const electron = window.require && window.require("electron").remote
+
 class GeneralPrefs extends PrefsCategory {
   readonly title = "General"
 
@@ -45,7 +47,6 @@ class GeneralPrefs extends PrefsCategory {
       if (!normalizedRoot.endsWith("/")) normalizedRoot = normalizedRoot + "/"
       setBaseUrl("file:" + normalizedRoot)
       Property.setCustomUrlSelector(async value => {
-        const electron = window.require("electron").remote
         const currentPath = value.current
         const result = await electron.dialog.showOpenDialog(
           electron.getCurrentWindow(),
@@ -88,7 +89,6 @@ Property.setConfigCreator("directory", (model, editable) => {
   if (!window.require) return {type: "spacer", width: 0, height: 0}
   const value = model.resolve<Mutable<string>>("value")
   return Property.createEllipsisConfig(model, editable, async () => {
-    const electron = window.require("electron").remote
     const result = await electron.dialog.showOpenDialog(
       electron.getCurrentWindow(),
       {defaultPath: value.current, properties: ["openDirectory"]},
