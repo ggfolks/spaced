@@ -1,4 +1,3 @@
-import {Color} from "tfw/core/color"
 import {refEquals} from "tfw/core/data"
 import {dim2, quat, vec3} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
@@ -6,7 +5,7 @@ import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
-  DEFAULT_PAGE, EDITOR_LAYER, GameEngine, GameObject, GameObjectConfig, PrimitiveTypes, SpaceConfig,
+  DEFAULT_PAGE, GameEngine, GameObject, GameObjectConfig, PrimitiveTypes, SpaceConfig,
 } from "tfw/engine/game"
 import {JavaScript} from "tfw/engine/util"
 import {getCurrentEditNumber} from "tfw/ui/element"
@@ -17,6 +16,8 @@ import {Property} from "tfw/ui/property"
 import {UI} from "tfw/ui/ui"
 import {createPrefsConfig} from "./config"
 import {Preferences} from "../prefs"
+
+const EDITOR_LAYER_FLAG = (1 << 1)
 
 export interface SpaceEditConfig {
   [id :string] :PMap<any>
@@ -56,7 +57,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const changed = Value
     .join(activeVersion, savedVersion)
     .map(([active, saved]) => active !== saved)
-  const getPathName = () => (path.current === "") ? "untitled.config.js" : path.current
+  const getPathName = () => (path.current === "") ? "untitled.space.js" : path.current
   Value.join2(path, changed).onValue(([path, changed]) => {
     document.title = `${changed ? "*" : ""}${getPathName()} — Spaced`
   })
@@ -78,7 +79,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     selection.clear()
     undoStack.length = 0
     redoStack.length = 0
-    for (const gameObject of gameEngine.gameObjects.values()) gameObject.dispose()
+    gameEngine.disposeGameObjects()
     gameEngine.createGameObjects(editorObjects)
   }
   resetModel()
@@ -151,7 +152,9 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     return {
       keys: Value.join2(keys, showEditorObjects).map(([keys, showEditorObjects]) => {
         if (showEditorObjects) return keys
-        return keys.filter(key => gameEngine.gameObjects.require(key).layer !== EDITOR_LAYER)
+        return keys.filter(
+          key => gameEngine.gameObjects.require(key).layerFlags !== EDITOR_LAYER_FLAG,
+        )
       }),
       resolve: (key :ModelKey) => {
         let model = models.get(key)
@@ -241,12 +244,12 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   let saveModel :ModelData = {}
   let quitModel :ModelData = {}
   const filters = [
-    {name: "Spaces", extensions: ["config.js"]},
+    {name: "Spaces", extensions: ["space.js"]},
     {name: "All Files", extensions: ["*"]},
   ]
   let saveTo :(path :string) => void = Noop
   const createSpaceConfigString =
-    () => JavaScript.stringify(gameEngine.createConfig(~(1 << EDITOR_LAYER)))
+    () => JavaScript.stringify(gameEngine.createConfig(~EDITOR_LAYER_FLAG))
   let loadFrom :(path :string) => void = Noop
   if (window.require) {
     const fs = window.require("fs")
@@ -477,7 +480,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
             } : () => {
               const file = new File(
                 [createSpaceConfigString()],
-                "space.config.js",
+                "untitled.space.js",
                 {type: "application/octet-stream"},
               )
               open(URL.createObjectURL(file), "_self")
@@ -779,7 +782,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
 function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
   return {
     editorCamera: {
-      layer: EDITOR_LAYER,
+      layerFlags: EDITOR_LAYER_FLAG,
       transform: {
         localPosition: vec3.fromValues(0, 5, 5),
         localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
@@ -790,7 +793,7 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
       },
     },
     editorGrid: {
-      layer: EDITOR_LAYER,
+      layerFlags: EDITOR_LAYER_FLAG,
       transform: {
         localRotation: quat.fromEuler(quat.create(), -90, 0, 0),
         localScale: vec3.fromValues(1000, 1000, 1000),
@@ -808,15 +811,6 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
           fragmentShaderGraphConfig: {},
         },
       },
-    },
-    editorAmbient: {
-      layer: EDITOR_LAYER,
-      light: {color: Color.fromRGB(0.25, 0.25, 0.25)},
-    },
-    editorDirectional: {
-      layer: EDITOR_LAYER,
-      transform: {localPosition: vec3.fromValues(1, 1, 1)},
-      light: {lightType: "directional"},
     },
   }
 }
