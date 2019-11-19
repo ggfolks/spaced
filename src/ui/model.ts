@@ -17,7 +17,7 @@ import {UI} from "tfw/ui/ui"
 import {createPrefsConfig} from "./config"
 import {Preferences} from "../prefs"
 
-const EDITOR_LAYER_FLAG = (1 << 1)
+const EDITOR_HIDE_FLAG = (1 << 1)
 
 export interface SpaceEditConfig {
   [id :string] :PMap<any>
@@ -153,7 +153,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       keys: Value.join2(keys, showEditorObjects).map(([keys, showEditorObjects]) => {
         if (showEditorObjects) return keys
         return keys.filter(
-          key => gameEngine.gameObjects.require(key).layerFlags !== EDITOR_LAYER_FLAG,
+          key => !(gameEngine.gameObjects.require(key).hideFlags & EDITOR_HIDE_FLAG),
         )
       }),
       resolve: (key :ModelKey) => {
@@ -248,8 +248,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     {name: "All Files", extensions: ["*"]},
   ]
   let saveTo :(path :string) => void = Noop
-  const createSpaceConfigString =
-    () => JavaScript.stringify(gameEngine.createConfig(~EDITOR_LAYER_FLAG))
+  const createSpaceConfigString = () => JavaScript.stringify(gameEngine.createConfig())
   let loadFrom :(path :string) => void = Noop
   if (window.require) {
     const fs = window.require("fs")
@@ -711,10 +710,18 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     componentsModel: {
       keys: selectionArray.switchMap(selection => {
         if (selection.length === 0) return Value.constant<string[]>([])
-        if (selection.length === 1) return gameEngine.gameObjects.require(
-          selection[0]).componentTypes
+        const getComponentTypes = (id :string) => {
+          const gameObject = gameEngine.gameObjects.require(id)
+          return Value.join2(showEditorObjects, gameObject.componentTypes).map(([show, types]) => {
+            if (show) return types
+            return types.filter(
+              type => !(gameObject.requireComponent(type).hideFlags & EDITOR_HIDE_FLAG),
+            )
+          })
+        }
+        if (selection.length === 1) return getComponentTypes(selection[0])
         const values :Value<string[]>[] = []
-        for (const id of selection) values.push(gameEngine.gameObjects.require(id).componentTypes)
+        for (const id of selection) values.push(getComponentTypes(id))
         return Value.join(...values).map(componentTypes => {
           const merged :string[] = []
           typeLoop: for (const type of componentTypes[0]) {
@@ -782,7 +789,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
 function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
   return {
     editorCamera: {
-      layerFlags: EDITOR_LAYER_FLAG,
+      hideFlags: EDITOR_HIDE_FLAG,
       transform: {
         localPosition: vec3.fromValues(0, 5, 5),
         localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
@@ -793,7 +800,7 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
       },
     },
     editorGrid: {
-      layerFlags: EDITOR_LAYER_FLAG,
+      hideFlags: EDITOR_HIDE_FLAG,
       transform: {
         localRotation: quat.fromEuler(quat.create(), -90, 0, 0),
         localScale: vec3.fromValues(1000, 1000, 1000),
