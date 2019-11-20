@@ -14,7 +14,9 @@ import {
 } from "tfw/ui/model"
 import {Property} from "tfw/ui/property"
 import {UI} from "tfw/ui/ui"
+
 import {createPrefsConfig} from "./config"
+import "../components"
 import {Preferences} from "../prefs"
 
 const EDITOR_HIDE_FLAG = (1 << 1)
@@ -44,6 +46,8 @@ interface FullGameObjectEdit extends GameObjectEdit {
 
 const electron = window.require && window.require("electron").remote
 
+export const selection = MutableSet.local<string>()
+
 export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui :UI) {
   const getOrder = (id :string) => {
     if (id === DEFAULT_PAGE) return 0
@@ -61,7 +65,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   Value.join2(path, changed).onValue(([path, changed]) => {
     document.title = `${changed ? "*" : ""}${getPathName()} — Spaced`
   })
-  const selection = MutableSet.local<string>()
   const haveSelection = selection.fold(false, (value, set) => set.size > 0)
   const selectionArray = selection.fold<string[]>([], (value, set) => Array.from(set))
   const clipboard = Mutable.local<SpaceConfig|undefined>(undefined)
@@ -85,6 +88,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   resetModel()
   const loadConfig = (config :SpaceConfig) => {
     resetModel()
+    for (const id in config) config[id].selector = {hideFlags: EDITOR_HIDE_FLAG}
     gameEngine.createGameObjects(config)
   }
   gameEngine.activePage.onChange(() => selection.clear())
@@ -188,6 +192,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     if (activePage !== DEFAULT_PAGE) config.transform = {parentId: activePage}
     const rootIds = gameEngine.rootIds.current
     config.order = rootIds.length === 0 ? 0 : getOrder(rootIds[rootIds.length - 1]) + 1
+    config.selector = {hideFlags: EDITOR_HIDE_FLAG}
     applyEdit({selection: new Set([name]), add: {[name]: config}})
   }
   const addSubtreeToConfig = (config :SpaceConfig, rootId :string) => {
