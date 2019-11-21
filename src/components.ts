@@ -14,6 +14,13 @@ import {selection} from "./ui/model"
 let outlineCount = 0
 let outlineRemover = NoopRemover
 
+let renderTarget :WebGLRenderTarget|undefined
+
+const postScene = new Scene()
+postScene.autoUpdate = false
+
+let postMaterial :ShaderMaterial|undefined
+
 const DEFAULT_LAYER = 0
 const OUTLINE_LAYER = 1
 
@@ -69,68 +76,67 @@ class Selector extends TypeScriptComponent {
       const threeRenderEngine = this.gameEngine.renderEngine as ThreeRenderEngine
       const renderer = threeRenderEngine.renderer
       const size = renderer.getDrawingBufferSize(new Vector2())
-      const renderTarget = new WebGLRenderTarget(size.x, size.y)
-      const postScene = new Scene()
-      postScene.autoUpdate = false
-      const postMaterial = new ShaderMaterial({
-        vertexShader: `
-          varying vec2 v_UV;
-          void main(void) {
-            v_UV = uv;
-            gl_Position = vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform sampler2D texture;
-          uniform vec2 pixelSize;
-          varying vec2 v_UV;
-          void main(void) {
-            // we use a half-pixel offset so that we can take advantage of linear interpolation
-            // to sample four pixels at once
-            vec2 offset = pixelSize * 1.5;
-            vec4 left = vec4(
-              texture2D(texture, v_UV + vec2(-offset.x, -offset.y)).a,
-              texture2D(texture, v_UV + vec2(-offset.x, 0.0)).a,
-              texture2D(texture, v_UV + vec2(-offset.x, offset.y)).a,
-              texture2D(texture, v_UV + vec2(0.0, -offset.y)).a
-            );
-            vec4 right = vec4(
-              texture2D(texture, v_UV + vec2(0.0, offset.y)).a,
-              texture2D(texture, v_UV + vec2(offset.x, -offset.y)).a,
-              texture2D(texture, v_UV + vec2(offset.x, 0.0)).a,
-              texture2D(texture, v_UV + vec2(offset.x, offset.y)).a
-            );
-            vec4 leftSigns = sign(left);
-            vec4 rightSigns = sign(right);
-            float sum = dot(left, vec4(1.0)) + dot(right, vec4(1.0));
-            float count = dot(leftSigns, vec4(1.0)) + dot(rightSigns, vec4(1.0));
-            float base = texture2D(texture, v_UV).a;
-            gl_FragColor = vec4(vec3(sum / count), sign(count) * (1.0 - sign(base)));
-          }
-        `,
-        transparent: true,
-        uniforms: {
-          texture: {value: renderTarget.texture},
-          pixelSize: {value: new Vector2()},
-        },
-      })
-      postScene.add(new Mesh(new PlaneBufferGeometry(2, 2), postMaterial))
+      if (!renderTarget) {
+        renderTarget = new WebGLRenderTarget(size.x, size.y)
+        postMaterial = new ShaderMaterial({
+          vertexShader: `
+            varying vec2 v_UV;
+            void main(void) {
+              v_UV = uv;
+              gl_Position = vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            uniform sampler2D texture;
+            uniform vec2 pixelSize;
+            varying vec2 v_UV;
+            void main(void) {
+              // we use a half-pixel offset so that we can take advantage of linear interpolation
+              // to sample four pixels at once
+              vec2 offset = pixelSize * 1.5;
+              vec4 left = vec4(
+                texture2D(texture, v_UV + vec2(-offset.x, -offset.y)).a,
+                texture2D(texture, v_UV + vec2(-offset.x, 0.0)).a,
+                texture2D(texture, v_UV + vec2(-offset.x, offset.y)).a,
+                texture2D(texture, v_UV + vec2(0.0, -offset.y)).a
+              );
+              vec4 right = vec4(
+                texture2D(texture, v_UV + vec2(0.0, offset.y)).a,
+                texture2D(texture, v_UV + vec2(offset.x, -offset.y)).a,
+                texture2D(texture, v_UV + vec2(offset.x, 0.0)).a,
+                texture2D(texture, v_UV + vec2(offset.x, offset.y)).a
+              );
+              vec4 leftSigns = sign(left);
+              vec4 rightSigns = sign(right);
+              float sum = dot(left, vec4(1.0)) + dot(right, vec4(1.0));
+              float count = dot(leftSigns, vec4(1.0)) + dot(rightSigns, vec4(1.0));
+              float base = texture2D(texture, v_UV).a;
+              gl_FragColor = vec4(vec3(sum / count), sign(count) * (1.0 - sign(base)));
+            }
+          `,
+          transparent: true,
+          uniforms: {
+            texture: {value: renderTarget.texture},
+            pixelSize: {value: new Vector2()},
+          },
+        })
+        postScene.add(new Mesh(new PlaneBufferGeometry(2, 2), postMaterial))
+      }
       threeRenderEngine.onAfterRender = (scene, camera) => {
         renderer.getDrawingBufferSize(size)
-        renderTarget.setSize(size.x, size.y)
-        renderer.setRenderTarget(renderTarget)
+        renderTarget!.setSize(size.x, size.y)
+        renderer.setRenderTarget(renderTarget!)
         renderer.clear()
         camera.layers.set(OUTLINE_LAYER)
         renderer.render(scene, camera)
         camera.layers.set(DEFAULT_LAYER)
 
         renderer.setRenderTarget(null)
-        postMaterial.uniforms.pixelSize.value.set(2 / size.x, 2 / size.y)
+        postMaterial!.uniforms.pixelSize.value.set(2 / size.x, 2 / size.y)
         renderer.render(postScene, camera)
       }
       outlineRemover = () => {
         threeRenderEngine.onAfterRender = undefined
-        renderTarget.dispose()
       }
     }
   }
