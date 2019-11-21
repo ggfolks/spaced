@@ -5,7 +5,8 @@ import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
-  DEFAULT_PAGE, GameEngine, GameObject, GameObjectConfig, PrimitiveTypes, SpaceConfig,
+  DEFAULT_LAYER_FLAG, DEFAULT_PAGE, GameEngine, GameObject,
+  GameObjectConfig, PrimitiveTypes, SpaceConfig,
 } from "tfw/engine/game"
 import {JavaScript} from "tfw/engine/util"
 import {getCurrentEditNumber} from "tfw/ui/element"
@@ -18,6 +19,9 @@ import {UI} from "tfw/ui/ui"
 import {createPrefsConfig} from "./config"
 import "../components"
 import {Preferences} from "../prefs"
+
+export const OUTLINE_LAYER = 1
+const GRID_LAYER_FLAG = (1 << 2)
 
 const EDITOR_HIDE_FLAG = (1 << 1)
 
@@ -799,12 +803,11 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
         localPosition: vec3.fromValues(0, 5, 5),
         localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
       },
-      camera: {},
-      graph: {
-        graphConfig: gameEngine.ctx.subgraphs.createGraphConfig(["orbit"]),
-      },
+      camera: {eventMask: DEFAULT_LAYER_FLAG},
+      cameraController: {},
     },
     editorGrid: {
+      layerFlags: GRID_LAYER_FLAG,
       hideFlags: EDITOR_HIDE_FLAG,
       transform: {
         localRotation: quat.fromEuler(quat.create(), -90, 0, 0),

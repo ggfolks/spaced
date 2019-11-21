@@ -2,14 +2,17 @@ import {
   Mesh, Object3D, PlaneBufferGeometry, Scene, ShaderMaterial, Vector2, WebGLRenderTarget,
 } from "three"
 
+import {clamp, quat, vec3} from "tfw/core/math"
 import {Value} from "tfw/core/react"
 import {Noop, NoopRemover} from "tfw/core/util"
 import {Hover} from "tfw/engine/game"
+import {property} from "tfw/engine/meta"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
+import {wheelEvents} from "tfw/input/react"
 
-import {selection} from "./ui/model"
+import {OUTLINE_LAYER, selection} from "./ui/model"
 
 let outlineCount = 0
 let outlineRemover = NoopRemover
@@ -20,9 +23,6 @@ const postScene = new Scene()
 postScene.autoUpdate = false
 
 let postMaterial :ShaderMaterial|undefined
-
-const DEFAULT_LAYER = 0
-const OUTLINE_LAYER = 1
 
 class Selector extends TypeScriptComponent {
 
@@ -66,7 +66,7 @@ class Selector extends TypeScriptComponent {
       let previousOpacity = 0
       node.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
         previousOpacity = material.opacity
-        material.opacity = selected ? 0.5 : 0.25
+        material.opacity = selected ? 0.8 : 0.4
       }
       node.onAfterRender = (renderer, scene, camera, geometry, material, group) => {
         material.opacity = previousOpacity
@@ -127,9 +127,10 @@ class Selector extends TypeScriptComponent {
         renderTarget!.setSize(size.x, size.y)
         renderer.setRenderTarget(renderTarget!)
         renderer.clear()
+        const previousLayerMask = camera.layers.mask
         camera.layers.set(OUTLINE_LAYER)
         renderer.render(scene, camera)
-        camera.layers.set(DEFAULT_LAYER)
+        camera.layers.mask = previousLayerMask
 
         renderer.setRenderTarget(null)
         postMaterial!.uniforms.pixelSize.value.set(2 / size.x, 2 / size.y)
@@ -153,3 +154,63 @@ class Selector extends TypeScriptComponent {
   }
 }
 registerConfigurableType("component", undefined, "selector", Selector)
+
+const tmpq = quat.create()
+const tmpv = vec3.create()
+
+class CameraController extends TypeScriptComponent {
+  @property("vec3") target = vec3.create()
+  @property("number") azimuth = 0
+  @property("number") elevation = -45
+  @property("number") distance = 10
+
+  awake () {
+    const offset = vec3.create()
+    this._disposer.add(
+      Value
+        .join2(
+          this.getProperty<vec3>("target"),
+          Value.join(
+            this.getProperty<number>("azimuth"),
+            this.getProperty<number>("elevation"),
+            this.getProperty<number>("distance"),
+          ),
+        )
+        .onValue(([target, [azimuth, elevation, distance]]) => {
+          quat.fromEuler(this.transform.localRotation, elevation, azimuth, 0)
+          vec3.transformQuat(offset, vec3.set(offset, 0, 0, distance), this.transform.localRotation)
+          vec3.add(this.transform.localPosition, target, offset)
+        }),
+    )
+    this._disposer.add(
+      wheelEvents.onEmit(event => {
+        if (!this.gameEngine.ctx.hand!.mouse.canvasContains(event)) return
+        this._addToDistance(0.5 * Math.sign(event.deltaY))
+      }),
+    )
+  }
+
+  onPointerDrag (identifier :number, hover :Hover) {
+    const mouse = this.gameEngine.ctx.hand!.mouse
+    if (mouse.getButtonState(0).current) {
+      this.azimuth += hover.viewMovement[0] * -180
+      this.elevation = clamp(this.elevation + hover.viewMovement[1] * 180, -90, 90)
+
+    } else if (mouse.getButtonState(1).current) {
+      this._addToDistance(hover.viewMovement[1] * -20)
+
+    } else {
+      vec3.transformQuat(
+        tmpv,
+        vec3.set(tmpv, -hover.viewMovement[0], 0, hover.viewMovement[1]),
+        quat.fromEuler(tmpq, 0, this.azimuth, 0),
+      )
+      this.target = vec3.scaleAndAdd(tmpv, this.target, tmpv, this.distance)
+    }
+  }
+
+  private _addToDistance (amount :number) {
+    this.distance = Math.max(0.5, this.distance + amount)
+  }
+}
+registerConfigurableType("component", undefined, "cameraController", CameraController)
