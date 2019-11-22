@@ -21,9 +21,9 @@ import "../components"
 import {Preferences} from "../prefs"
 
 export const OUTLINE_LAYER = 1
-const GRID_LAYER_FLAG = (1 << 2)
+export const NONINTERACTIVE_LAYER_FLAG = (1 << 2)
 
-const EDITOR_HIDE_FLAG = (1 << 1)
+export const EDITOR_HIDE_FLAG = (1 << 1)
 
 export interface SpaceEditConfig {
   [id :string] :PMap<any>
@@ -807,7 +807,7 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
       cameraController: {},
     },
     editorGrid: {
-      layerFlags: GRID_LAYER_FLAG,
+      layerFlags: NONINTERACTIVE_LAYER_FLAG,
       hideFlags: EDITOR_HIDE_FLAG,
       transform: {
         localRotation: quat.fromEuler(quat.create(), -90, 0, 0),

@@ -2,17 +2,17 @@ import {
   Mesh, Object3D, PlaneBufferGeometry, Scene, ShaderMaterial, Vector2, WebGLRenderTarget,
 } from "three"
 
-import {clamp, quat, vec3} from "tfw/core/math"
+import {Plane, Ray, clamp, quat, vec3} from "tfw/core/math"
 import {Value} from "tfw/core/react"
 import {Noop, NoopRemover} from "tfw/core/util"
-import {Hover} from "tfw/engine/game"
+import {GameObject, Hover} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
 import {wheelEvents} from "tfw/input/react"
 
-import {OUTLINE_LAYER, selection} from "./ui/model"
+import {EDITOR_HIDE_FLAG, NONINTERACTIVE_LAYER_FLAG, OUTLINE_LAYER, selection} from "./ui/model"
 
 let outlineCount = 0
 let outlineRemover = NoopRemover
@@ -23,6 +23,10 @@ const postScene = new Scene()
 postScene.autoUpdate = false
 
 let postMaterial :ShaderMaterial|undefined
+
+// get these before we need them so that the Keyboard instance is created and listening
+const controlKeyState = Keyboard.instance.getKeyState(17)
+const shiftKeyState = Keyboard.instance.getKeyState(16)
 
 class Selector extends TypeScriptComponent {
 
@@ -48,7 +52,7 @@ class Selector extends TypeScriptComponent {
   }
 
   onPointerDown (identifier :number, hover :Hover) {
-    if (Keyboard.instance.getKeyState(17).current) { // control
+    if (controlKeyState.current) {
       if (selection.has(this.gameObject.name)) selection.delete(this.gameObject.name)
       else selection.add(this.gameObject.name)
     } else {
@@ -156,13 +160,19 @@ class Selector extends TypeScriptComponent {
 registerConfigurableType("component", undefined, "selector", Selector)
 
 const tmpq = quat.create()
+const tmpr = Ray.create()
 const tmpv = vec3.create()
+
+const xzPlane = Plane.fromValues(0, 1, 0, 0)
 
 class CameraController extends TypeScriptComponent {
   @property("vec3") target = vec3.create()
   @property("number") azimuth = 0
   @property("number") elevation = -45
   @property("number") distance = 10
+
+  private _selectRegion? :GameObject
+  private _selectStartPosition = vec3.create()
 
   awake () {
     const offset = vec3.create()
@@ -190,7 +200,45 @@ class CameraController extends TypeScriptComponent {
     )
   }
 
+  onPointerDown (identifier :number, hover :Hover) {
+    const mouse = this.gameEngine.ctx.hand!.mouse
+    if (mouse.getButtonState(0).current && shiftKeyState.current) {
+      if (!this._getXZPlaneIntersection(hover, this._selectStartPosition)) return
+      this._selectRegion = this.gameEngine.createGameObject("select", {
+        layerFlags: NONINTERACTIVE_LAYER_FLAG,
+        hideFlags: EDITOR_HIDE_FLAG,
+        transform: {
+          localPosition: this._selectStartPosition,
+          localScale: vec3.fromValues(0, 1, 0),
+        },
+        meshFilter: {
+          meshConfig: {type: "cube"},
+        },
+        meshRenderer: {
+          materialConfig: {
+            type: "basic",
+            transparent: true,
+            opacity: 0.5,
+          },
+        },
+      })
+    }
+  }
+
   onPointerDrag (identifier :number, hover :Hover) {
+    if (this._selectRegion) {
+      if (!this._getXZPlaneIntersection(hover, tmpv)) return
+      const transform = this._selectRegion.transform
+      vec3.add(transform.localPosition, this._selectStartPosition, tmpv)
+      vec3.scale(transform.localPosition, transform.localPosition, 0.5)
+      vec3.set(
+        transform.localScale,
+        Math.abs(tmpv[0] - this._selectStartPosition[0]),
+        1,
+        Math.abs(tmpv[2] - this._selectStartPosition[2]),
+      )
+      return
+    }
     const mouse = this.gameEngine.ctx.hand!.mouse
     if (mouse.getButtonState(0).current) {
       this.azimuth += hover.viewMovement[0] * -180
@@ -207,6 +255,23 @@ class CameraController extends TypeScriptComponent {
       )
       this.target = vec3.scaleAndAdd(tmpv, this.target, tmpv, this.distance)
     }
+  }
+
+  onPointerUp (identifier :number) {
+    if (this._selectRegion) {
+      this._selectRegion.dispose()
+      this._selectRegion = undefined
+    }
+  }
+
+  private _getXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
+    vec3.copy(tmpr.origin, this.transform.localPosition)
+    vec3.subtract(tmpr.direction, hover.worldPosition, tmpr.origin)
+    vec3.normalize(tmpr.direction, tmpr.direction)
+    const distance = Plane.intersectRay(xzPlane, tmpr.origin, tmpr.direction)
+    if (!(distance > 0)) return false // could be NaN
+    Ray.getPoint(result, tmpr, distance)
+    return true
   }
 
   private _addToDistance (amount :number) {
