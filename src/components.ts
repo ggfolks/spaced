@@ -198,15 +198,17 @@ class CameraController extends TypeScriptComponent {
           ),
         )
         .onValue(([target, [azimuth, elevation, distance]]) => {
-          quat.fromEuler(this.transform.localRotation, elevation, azimuth, 0)
-          vec3.transformQuat(offset, vec3.set(offset, 0, 0, distance), this.transform.localRotation)
-          vec3.add(this.transform.localPosition, target, offset)
+          quat.fromEuler(this.transform.rotation, elevation, azimuth, 0)
+          vec3.transformQuat(offset, vec3.set(offset, 0, 0, distance), this.transform.rotation)
+          vec3.add(this.transform.position, target, offset)
         }),
     )
     this._disposer.add(
       wheelEvents.onEmit(event => {
-        if (!this.gameEngine.ctx.hand!.mouse.canvasContains(event)) return
-        this._addToDistance(0.5 * Math.sign(event.deltaY))
+        if (
+          this.gameObject.activeInHierarchy &&
+          this.gameEngine.ctx.hand!.mouse.canvasContains(event)
+        ) this._addToDistance(0.5 * Math.sign(event.deltaY))
       }),
     )
   }
@@ -302,7 +304,7 @@ class CameraController extends TypeScriptComponent {
   }
 
   private _getXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
-    vec3.copy(tmpr.origin, this.transform.localPosition)
+    vec3.copy(tmpr.origin, this.transform.position)
     vec3.subtract(tmpr.direction, hover.worldPosition, tmpr.origin)
     vec3.normalize(tmpr.direction, tmpr.direction)
     const distance = Plane.intersectRay(xzPlane, tmpr.origin, tmpr.direction)
