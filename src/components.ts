@@ -2,10 +2,11 @@ import {
   Mesh, Object3D, PlaneBufferGeometry, Scene, ShaderMaterial, Vector2, WebGLRenderTarget,
 } from "three"
 
-import {Plane, Ray, clamp, quat, vec3} from "tfw/core/math"
-import {Value} from "tfw/core/react"
+import {Color} from "tfw/core/color"
+import {Bounds, Plane, Ray, clamp, quat, vec3} from "tfw/core/math"
+import {Mutable, Value} from "tfw/core/react"
 import {Noop, NoopRemover} from "tfw/core/util"
-import {GameObject, Hover} from "tfw/engine/game"
+import {GameObject, Hover, Transform} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
@@ -29,23 +30,25 @@ const controlKeyState = Keyboard.instance.getKeyState(17)
 const shiftKeyState = Keyboard.instance.getKeyState(16)
 
 class Selector extends TypeScriptComponent {
+  readonly groupHovered = Mutable.local(false)
 
   private _outlineObject? :Object3D
 
   awake () {
     this._disposer.add(
       Value
-        .join2(
+        .join3(
           this.gameObject
             .getProperty<ThreeObjectComponent|undefined>("hoverable")
             .switchMap(hoverable => {
               if (!hoverable) return Value.constant<[number, Object3D|undefined]>([0, undefined])
               return Value.join2(hoverable.hovers.sizeValue, hoverable.objectValue)
             }),
+          this.groupHovered,
           selection.hasValue(this.gameObject.name),
         )
-        .onValue(([[hovered, object], selected]) => {
-          if (object && (hovered || selected)) this._setOutline(object, selected)
+        .onValue(([[hovered, object], groupHovered, selected]) => {
+          if (object && (hovered || groupHovered || selected)) this._setOutline(object, selected)
           else this._clearOutline()
         })
     )
@@ -162,8 +165,16 @@ registerConfigurableType("component", undefined, "selector", Selector)
 const tmpq = quat.create()
 const tmpr = Ray.create()
 const tmpv = vec3.create()
+const tmpb = Bounds.create()
 
 const xzPlane = Plane.fromValues(0, 1, 0, 0)
+
+const transforms :Transform[] = []
+let selectors = new Set<Selector>()
+let lastSelectors = new Set<Selector>()
+
+// a scale that's very small, but nonzero (to avoid noninvertible matrices)
+const SMALL_SCALE = 0.000001
 
 class CameraController extends TypeScriptComponent {
   @property("vec3") target = vec3.create()
@@ -203,13 +214,14 @@ class CameraController extends TypeScriptComponent {
   onPointerDown (identifier :number, hover :Hover) {
     const mouse = this.gameEngine.ctx.hand!.mouse
     if (mouse.getButtonState(0).current && shiftKeyState.current) {
+      selection.clear()
       if (!this._getXZPlaneIntersection(hover, this._selectStartPosition)) return
       this._selectRegion = this.gameEngine.createGameObject("select", {
         layerFlags: NONINTERACTIVE_LAYER_FLAG,
         hideFlags: EDITOR_HIDE_FLAG,
         transform: {
           localPosition: this._selectStartPosition,
-          localScale: vec3.fromValues(0, 1, 0),
+          localScale: vec3.fromValues(SMALL_SCALE, 1, SMALL_SCALE),
         },
         meshFilter: {
           meshConfig: {type: "cube"},
@@ -217,8 +229,9 @@ class CameraController extends TypeScriptComponent {
         meshRenderer: {
           materialConfig: {
             type: "basic",
+            color: Color.fromRGB(0.4, 0.4, 0.4),
             transparent: true,
-            opacity: 0.5,
+            opacity: 0.125,
           },
         },
       })
@@ -233,10 +246,26 @@ class CameraController extends TypeScriptComponent {
       vec3.scale(transform.localPosition, transform.localPosition, 0.5)
       vec3.set(
         transform.localScale,
-        Math.abs(tmpv[0] - this._selectStartPosition[0]),
+        Math.max(SMALL_SCALE, Math.abs(tmpv[0] - this._selectStartPosition[0])),
         1,
-        Math.abs(tmpv[2] - this._selectStartPosition[2]),
+        Math.max(SMALL_SCALE, Math.abs(tmpv[2] - this._selectStartPosition[2])),
       )
+      vec3.min(tmpb.min, this._selectStartPosition, tmpv)
+      vec3.max(tmpb.max, this._selectStartPosition, tmpv)
+      tmpb.min[1] -= 0.5
+      tmpb.max[1] += 0.5
+      this.gameEngine.renderEngine.overlapBounds(tmpb, ~NONINTERACTIVE_LAYER_FLAG, transforms)
+      for (const transform of transforms) {
+        const selector = transform.requireComponent<Selector>("selector")
+        selector.groupHovered.update(true)
+        selectors.add(selector)
+      }
+      transforms.length = 0
+      for (const selector of lastSelectors) {
+        if (!selectors.has(selector)) selector.groupHovered.update(false)
+      }
+      lastSelectors.clear();
+      [selectors, lastSelectors] = [lastSelectors, selectors]
       return
     }
     const mouse = this.gameEngine.ctx.hand!.mouse
@@ -261,6 +290,14 @@ class CameraController extends TypeScriptComponent {
     if (this._selectRegion) {
       this._selectRegion.dispose()
       this._selectRegion = undefined
+
+      if (lastSelectors.size > 0) {
+        for (const selector of lastSelectors) {
+          selector.groupHovered.update(false)
+          selection.add(selector.gameObject.name)
+        }
+        lastSelectors.clear()
+      }
     }
   }
 

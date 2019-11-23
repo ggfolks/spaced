@@ -281,7 +281,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         electron.getCurrentWindow(),
         {
           title: "Save As",
-          defaultPath: getPathName(),
+          defaultPath: path.current || prefs.general.normalizedRoot + getPathName(),
           buttonLabel: "Save",
           properties: ["openFile", "promptToCreate"],
           filters,
@@ -298,7 +298,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           electron.getCurrentWindow(),
           {
             title: "Open Space",
-            defaultPath: path.current,
+            defaultPath: path.current || prefs.general.rootDirectory,
             buttonLabel: "Open",
             properties: ["openFile"],
             filters,
@@ -819,8 +819,6 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
       meshRenderer: {
         materialConfig: {
           type: "shader",
-          transparent: true,
-          alphaTest: 0.5,
           side: "both",
           vertexShaderGraphConfig: {},
           fragmentShaderGraphConfig: {},

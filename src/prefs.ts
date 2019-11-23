@@ -33,6 +33,12 @@ class GeneralPrefs extends PrefsCategory {
   @property("boolean", {editable: false}) showStats = false
   @property("boolean", {editable: false}) showEditorObjects = false
 
+  get normalizedRoot () :string {
+    if (!this.rootDirectory) return ""
+    const root = toForwardSlashes(this.rootDirectory)
+    return root.endsWith("/") ? root : root + "/"
+  }
+
   init () {
     super.init()
 
@@ -43,8 +49,7 @@ class GeneralPrefs extends PrefsCategory {
         Property.setCustomUrlSelector(undefined)
         return
       }
-      let normalizedRoot = toForwardSlashes(rootDirectory)
-      if (!normalizedRoot.endsWith("/")) normalizedRoot = normalizedRoot + "/"
+      const normalizedRoot = this.normalizedRoot
       setBaseUrl("file:" + normalizedRoot)
       Property.setCustomUrlSelector(async value => {
         const currentPath = value.current
