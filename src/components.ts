@@ -185,6 +185,14 @@ class CameraController extends TypeScriptComponent {
   private _selectRegion? :GameObject
   private _selectStartPosition = vec3.create()
 
+  reset () {
+    // @ts-ignore zero does exist
+    vec3.zero(this.target)
+    this.azimuth = 0
+    this.elevation = -45
+    this.distance = 10
+  }
+
   awake () {
     const offset = vec3.create()
     this._disposer.add(

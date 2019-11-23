@@ -428,6 +428,25 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     showEditorObjects: "Editor Objects",
     showStats: "Stats",
   }
+  const viewData :ModelData = {
+    resetCamera: {
+      name: Value.constant("Reset Camera"),
+      action: () => {
+        const activeCamera = gameEngine.renderEngine.activeCameras[0]
+        if (activeCamera) activeCamera.gameObject.cameraController.reset()
+      },
+    },
+    separator: {},
+  }
+  for (const name in viewNames) {
+    const checked = prefs.general.getProperty(name) as Mutable<boolean>
+    viewData[name] = {
+      name: Value.constant(viewNames[name]),
+      checkable: Value.constant(true),
+      checked,
+      action: () => checked.update(!checked.current),
+    }
+  }
 
   return new Model({
     menuBarModel: dataModel({
@@ -553,18 +572,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       },
       view: {
         name: Value.constant("View"),
-        model: makeModel(
-          Value.constant(Object.keys(viewNames)),
-          name => {
-            const checked = prefs.general.getProperty(name) as Mutable<boolean>
-            return {
-              name: Value.constant(viewNames[name]),
-              checkable: Value.constant(true),
-              checked,
-              action: () => checked.update(!checked.current),
-            }
-          },
-        ),
+        model: dataModel(viewData),
       },
       object: {
         name: Value.constant("Object"),
