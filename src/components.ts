@@ -230,7 +230,7 @@ class CameraController extends TypeScriptComponent {
         layerFlags: NONINTERACTIVE_LAYER_FLAG,
         hideFlags: EDITOR_HIDE_FLAG,
         transform: {
-          localPosition: this._selectStartPosition,
+          position: this._selectStartPosition,
           localScale: vec3.fromValues(SMALL_SCALE, 1, SMALL_SCALE),
         },
         meshFilter: {
@@ -252,8 +252,8 @@ class CameraController extends TypeScriptComponent {
     if (this._selectRegion) {
       if (!this._getXZPlaneIntersection(hover, tmpv)) return
       const transform = this._selectRegion.transform
-      vec3.add(transform.localPosition, this._selectStartPosition, tmpv)
-      vec3.scale(transform.localPosition, transform.localPosition, 0.5)
+      vec3.add(transform.position, this._selectStartPosition, tmpv)
+      vec3.scale(transform.position, transform.localPosition, 0.5)
       vec3.set(
         transform.localScale,
         Math.max(SMALL_SCALE, Math.abs(tmpv[0] - this._selectStartPosition[0])),

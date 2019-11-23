@@ -93,7 +93,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const loadConfig = (config :SpaceConfig) => {
     resetModel()
     for (const id in config) config[id].selector = {hideFlags: EDITOR_HIDE_FLAG}
-    gameEngine.createGameObjects(config)
+    gameEngine.createGameObjects(config, true)
   }
   gameEngine.activePage.onChange(() => selection.clear())
   const applyEdit = (edit :GameObjectEdit) => {
@@ -885,7 +885,7 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
           const value = addConfig[key]
           config[key] = (typeof value === "object") ? {} : value
         }
-        gameEngine.createGameObject(id, config)
+        gameEngine.createGameObject(id, config, true)
         reverseRemove.add(id)
       }
       for (const id in edit.add) {
