@@ -583,7 +583,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           },
           model: {
             name: Value.constant("Model"),
-            action: () => createObject("model", {model: {}, animation: {}}),
+            action: () => createObject("model", {model: {}}),
           },
           primitive: {
             name: Value.constant("Primitive"),
