@@ -29,7 +29,7 @@ disposer.add(new CannonPhysicsEngine(gameEngine))
 
 const ui = new UI(UITheme, UIStyles, {resolve: loadImage})
 const uiRoot = ui.createRoot(createUIConfig(rootSize), createUIModel(rootSize, gameEngine, ui))
-const host = new HTMLHost(root)
+const host = new HTMLHost(root, false)
 host.addRoot(uiRoot)
 
 const canvas = uiRoot.findTaggedChild("canvas")!
