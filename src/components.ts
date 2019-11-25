@@ -11,7 +11,6 @@ import {property} from "tfw/engine/meta"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
-import {wheelEvents} from "tfw/input/react"
 
 import {EDITOR_HIDE_FLAG, NONINTERACTIVE_LAYER_FLAG, OUTLINE_LAYER, selection} from "./ui/model"
 
@@ -211,14 +210,6 @@ class CameraController extends TypeScriptComponent {
           vec3.add(this.transform.position, target, offset)
         }),
     )
-    this._disposer.add(
-      wheelEvents.onEmit(event => {
-        if (
-          this.gameObject.activeInHierarchy &&
-          this.gameEngine.ctx.hand!.mouse.canvasContains(event)
-        ) this._addToDistance(0.5 * Math.sign(event.deltaY))
-      }),
-    )
   }
 
   onPointerDown (identifier :number, hover :Hover) {
@@ -309,6 +300,10 @@ class CameraController extends TypeScriptComponent {
         lastSelectors.clear()
       }
     }
+  }
+
+  onWheel (identifier :number, hover :Hover, delta :vec3) {
+    this._addToDistance(0.5 * Math.sign(delta[1]))
   }
 
   private _getXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
