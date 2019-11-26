@@ -68,7 +68,9 @@ class Selector extends TypeScriptComponent {
     }
     const intersection = vec3.create()
     if (this._getXZPlaneIntersection(hover, intersection)) {
-      this._intersectionToCenter = vec3.subtract(intersection, this._getCenter(), intersection)
+      const bounds = this._getBounds()
+      const center = Bounds.getCenter(vec3.create(), bounds)
+      this._intersectionToCenter = vec3.subtract(intersection, center, intersection)
     } else {
       this._intersectionToCenter = undefined
     }
@@ -78,18 +80,19 @@ class Selector extends TypeScriptComponent {
     if (!this._intersectionToCenter) return
     const intersection = vec3.create()
     if (!this._getXZPlaneIntersection(hover, intersection)) return
-    const oldCenter = this._getCenter()
+    const bounds = this._getBounds()
+    const oldCenter = Bounds.getCenter(vec3.create(), bounds)
     const newCenter = vec3.add(intersection, intersection, this._intersectionToCenter)
     if (!shiftKeyState.current) {
-      // use a center for rounding that assumes roughly integer dimensions
-      // (thus we align on either the unit or the half)
+      // use a center and scale for rounding that depends on the bounds of the selection
       const bounds = this._getBounds()
-      const refCenter = Bounds.getSize(vec3.create(), bounds)
-      vec3.round(refCenter, refCenter)
-      vec3.set(refCenter, (refCenter[0] & 1) ? 0.0 : 0.5, 0, (refCenter[2] & 1) ? 0.0 : 0.5)
-      const delta = vec3.subtract(vec3.create(), newCenter, refCenter)
-      vec3.round(delta, delta)
-      vec3.add(newCenter, refCenter, delta)
+      const size = Bounds.getSize(vec3.create(), bounds)
+      const refScale = vec3.fromValues(getSnapScale(size[0]), 1, getSnapScale(size[2]))
+      roundToMultiple(size, refScale)
+      const refCenter = vec3.fromValues(size[0] / 2 - 0.5, newCenter[1], size[2] / 2 - 0.5)
+      vec3.subtract(newCenter, newCenter, refCenter)
+      roundToMultiple(newCenter, refScale)
+      vec3.add(newCenter, newCenter, refCenter)
     }
     this._createAndApplyEdit(id => {
       const gameObject = this.gameEngine.gameObjects.require(id)
@@ -98,18 +101,6 @@ class Selector extends TypeScriptComponent {
         transform: {position: vec3.add(offset, offset, newCenter)},
       }
     })
-  }
-
-  private _getBounds () :Bounds {
-    const bounds = Bounds.empty(Bounds.create())
-    this._applyToIds(id => {
-      const gameObject = this.gameEngine.gameObjects.require(id)
-      const model = gameObject.getComponent<Model>("model")
-      if (model) Bounds.union(bounds, bounds, model.bounds)
-      const meshRenderer = gameObject.getComponent<MeshRenderer>("meshRenderer")
-      if (meshRenderer) Bounds.union(bounds, bounds, meshRenderer.bounds)
-    })
-    return bounds
   }
 
   private _createAndApplyEdit (createForId :(id :string) => PMap<any>) {
@@ -229,16 +220,30 @@ class Selector extends TypeScriptComponent {
     return controller.getXZPlaneIntersection(hover, result)
   }
 
-  private _getCenter () :vec3 {
-    if (!selection.has(this.gameObject.id)) return vec3.clone(this.transform.position)
-    const center = vec3.create()
-    for (const id of selection) {
-      vec3.add(center, center, this.gameEngine.gameObjects.require(id).transform.position)
-    }
-    return vec3.scale(center, center, 1 / selection.size)
+  private _getBounds () :Bounds {
+    const bounds = Bounds.empty(Bounds.create())
+    this._applyToIds(id => {
+      const gameObject = this.gameEngine.gameObjects.require(id)
+      const model = gameObject.getComponent<Model>("model")
+      if (model) Bounds.union(bounds, bounds, model.bounds)
+      const meshRenderer = gameObject.getComponent<MeshRenderer>("meshRenderer")
+      if (meshRenderer) Bounds.union(bounds, bounds, meshRenderer.bounds)
+    })
+    return bounds
   }
 }
 registerConfigurableType("component", undefined, "selector", Selector)
+
+function getSnapScale (size :number) :number {
+  // use closet power of two if less than one, down to 0.25
+  return (size === 0) ? 1 : 2 ** clamp(Math.round(Math.log(size) / Math.log(2)), -2, 0)
+}
+
+function roundToMultiple (inOut :vec3, scale :vec3) :vec3 {
+  vec3.divide(inOut, inOut, scale)
+  vec3.round(inOut, inOut)
+  return vec3.multiply(inOut, inOut, scale)
+}
 
 const tmpq = quat.create()
 const tmpr = Ray.create()
