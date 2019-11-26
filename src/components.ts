@@ -5,9 +5,10 @@ import {
 import {Color} from "tfw/core/color"
 import {Bounds, Plane, Ray, clamp, quat, vec3} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
-import {Noop, NoopRemover} from "tfw/core/util"
+import {Noop, NoopRemover, PMap} from "tfw/core/util"
 import {GameObject, Hover, Transform} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
+import {MeshRenderer, Model} from "tfw/engine/render"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
@@ -80,25 +81,49 @@ class Selector extends TypeScriptComponent {
     const oldCenter = this._getCenter()
     const newCenter = vec3.add(intersection, intersection, this._intersectionToCenter)
     if (!shiftKeyState.current) {
-      const delta = vec3.subtract(vec3.create(), newCenter, oldCenter)
+      // use a center for rounding that assumes roughly integer dimensions
+      // (thus we align on either the unit or the half)
+      const bounds = this._getBounds()
+      const refCenter = Bounds.getSize(vec3.create(), bounds)
+      vec3.round(refCenter, refCenter)
+      vec3.set(refCenter, (refCenter[0] & 1) ? 0.0 : 0.5, 0, (refCenter[2] & 1) ? 0.0 : 0.5)
+      const delta = vec3.subtract(vec3.create(), newCenter, refCenter)
       vec3.round(delta, delta)
-      vec3.add(newCenter, oldCenter, delta)
+      vec3.add(newCenter, refCenter, delta)
     }
+    this._createAndApplyEdit(id => {
+      const gameObject = this.gameEngine.gameObjects.require(id)
+      const offset = vec3.subtract(vec3.create(), gameObject.transform.position, oldCenter)
+      return {
+        transform: {position: vec3.add(offset, offset, newCenter)},
+      }
+    })
+  }
+
+  private _getBounds () :Bounds {
+    const bounds = Bounds.empty(Bounds.create())
+    this._applyToIds(id => {
+      const gameObject = this.gameEngine.gameObjects.require(id)
+      const model = gameObject.getComponent<Model>("model")
+      if (model) Bounds.union(bounds, bounds, model.bounds)
+      const meshRenderer = gameObject.getComponent<MeshRenderer>("meshRenderer")
+      if (meshRenderer) Bounds.union(bounds, bounds, meshRenderer.bounds)
+    })
+    return bounds
+  }
+
+  private _createAndApplyEdit (createForId :(id :string) => PMap<any>) {
     const edit :SpaceEditConfig = {}
-    if (selection.has(this.gameObject.id)) {
-      for (const id of selection) {
-        const gameObject = this.gameEngine.gameObjects.require(id)
-        const offset = vec3.subtract(vec3.create(), gameObject.transform.position, oldCenter)
-        edit[id] = {
-          transform: {position: vec3.add(offset, offset, newCenter)},
-        }
-      }
-    } else {
-      edit[this.gameObject.id] = {
-        transform: {position: newCenter},
-      }
-    }
+    this._applyToIds(id => edit[id] = createForId(id))
     applyEdit({edit})
+  }
+
+  private _applyToIds (op :(id :string) => void) {
+    if (selection.has(this.gameObject.id)) {
+      for (const id of selection) op(id)
+    } else {
+      op(this.gameObject.id)
+    }
   }
 
   private _setOutline (object :Object3D, selected :boolean) {
@@ -359,7 +384,7 @@ class CameraController extends TypeScriptComponent {
       if (lastSelectors.size > 0) {
         for (const selector of lastSelectors) {
           selector.groupHovered.update(false)
-          selection.add(selector.gameObject.name)
+          selection.add(selector.gameObject.id)
         }
         lastSelectors.clear()
       }
