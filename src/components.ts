@@ -60,7 +60,7 @@ class Selector extends TypeScriptComponent {
     if (controlKeyState.current) {
       if (selection.has(this.gameObject.id)) selection.delete(this.gameObject.id)
       else selection.add(this.gameObject.id)
-      
+
     } else if (!selection.has(this.gameObject.id)) {
       selection.clear()
       selection.add(this.gameObject.id)
@@ -77,11 +77,15 @@ class Selector extends TypeScriptComponent {
     if (!this._intersectionToCenter) return
     const intersection = vec3.create()
     if (!this._getXZPlaneIntersection(hover, intersection)) return
+    const oldCenter = this._getCenter()
     const newCenter = vec3.add(intersection, intersection, this._intersectionToCenter)
-    if (!shiftKeyState.current) vec3.round(newCenter, newCenter)
+    if (!shiftKeyState.current) {
+      const delta = vec3.subtract(vec3.create(), newCenter, oldCenter)
+      vec3.round(delta, delta)
+      vec3.add(newCenter, oldCenter, delta)
+    }
     const edit :SpaceEditConfig = {}
     if (selection.has(this.gameObject.id)) {
-      const oldCenter = this._getCenter()
       for (const id of selection) {
         const gameObject = this.gameEngine.gameObjects.require(id)
         const offset = vec3.subtract(vec3.create(), gameObject.transform.position, oldCenter)
