@@ -52,6 +52,8 @@ const electron = window.require && window.require("electron").remote
 
 export const selection = MutableSet.local<string>()
 
+export let applyEdit :(edit :GameObjectEdit) => void = Noop
+
 export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui :UI) {
   const getOrder = (id :string) => {
     if (id === DEFAULT_PAGE) return 0
@@ -96,7 +98,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     gameEngine.createGameObjects(config, true)
   }
   gameEngine.activePage.onChange(() => selection.clear())
-  const applyEdit = (edit :GameObjectEdit) => {
+  applyEdit = (edit :GameObjectEdit) => {
     const oldActivePage = gameEngine.activePage.current
     const oldSelection = new Set(selection)
     const oldExpanded = new Set(expanded)

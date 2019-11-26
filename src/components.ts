@@ -12,7 +12,9 @@ import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescri
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
 
-import {EDITOR_HIDE_FLAG, NONINTERACTIVE_LAYER_FLAG, OUTLINE_LAYER, selection} from "./ui/model"
+import {
+  EDITOR_HIDE_FLAG, NONINTERACTIVE_LAYER_FLAG, OUTLINE_LAYER, SpaceEditConfig, applyEdit, selection,
+} from "./ui/model"
 
 let outlineCount = 0
 let outlineRemover = NoopRemover
@@ -32,6 +34,7 @@ class Selector extends TypeScriptComponent {
   readonly groupHovered = Mutable.local(false)
 
   private _outlineObject? :Object3D
+  private _intersectionToCenter? :vec3
 
   awake () {
     this._disposer.add(
@@ -44,7 +47,7 @@ class Selector extends TypeScriptComponent {
               return Value.join2(hoverable.hovers.sizeValue, hoverable.objectValue)
             }),
           this.groupHovered,
-          selection.hasValue(this.gameObject.name),
+          selection.hasValue(this.gameObject.id),
         )
         .onValue(([[hovered, object], groupHovered, selected]) => {
           if (object && (hovered || groupHovered || selected)) this._setOutline(object, selected)
@@ -55,12 +58,43 @@ class Selector extends TypeScriptComponent {
 
   onPointerDown (identifier :number, hover :Hover) {
     if (controlKeyState.current) {
-      if (selection.has(this.gameObject.name)) selection.delete(this.gameObject.name)
-      else selection.add(this.gameObject.name)
-    } else {
+      if (selection.has(this.gameObject.id)) selection.delete(this.gameObject.id)
+      else selection.add(this.gameObject.id)
+      
+    } else if (!selection.has(this.gameObject.id)) {
       selection.clear()
-      selection.add(this.gameObject.name)
+      selection.add(this.gameObject.id)
     }
+    const intersection = vec3.create()
+    if (this._getXZPlaneIntersection(hover, intersection)) {
+      this._intersectionToCenter = vec3.subtract(intersection, this._getCenter(), intersection)
+    } else {
+      this._intersectionToCenter = undefined
+    }
+  }
+
+  onPointerDrag (identifier :number, hover :Hover) {
+    if (!this._intersectionToCenter) return
+    const intersection = vec3.create()
+    if (!this._getXZPlaneIntersection(hover, intersection)) return
+    const newCenter = vec3.add(intersection, intersection, this._intersectionToCenter)
+    if (!shiftKeyState.current) vec3.round(newCenter, newCenter)
+    const edit :SpaceEditConfig = {}
+    if (selection.has(this.gameObject.id)) {
+      const oldCenter = this._getCenter()
+      for (const id of selection) {
+        const gameObject = this.gameEngine.gameObjects.require(id)
+        const offset = vec3.subtract(vec3.create(), gameObject.transform.position, oldCenter)
+        edit[id] = {
+          transform: {position: vec3.add(offset, offset, newCenter)},
+        }
+      }
+    } else {
+      edit[this.gameObject.id] = {
+        transform: {position: newCenter},
+      }
+    }
+    applyEdit({edit})
   }
 
   private _setOutline (object :Object3D, selected :boolean) {
@@ -158,6 +192,22 @@ class Selector extends TypeScriptComponent {
     this._outlineObject = undefined
     if (--outlineCount === 0) outlineRemover()
   }
+
+  private _getXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
+    const activeCamera = this.gameEngine.renderEngine.activeCameras[0]
+    if (!activeCamera) return false
+    const controller = activeCamera.requireComponent<CameraController>("cameraController")
+    return controller.getXZPlaneIntersection(hover, result)
+  }
+
+  private _getCenter () :vec3 {
+    if (!selection.has(this.gameObject.id)) return vec3.clone(this.transform.position)
+    const center = vec3.create()
+    for (const id of selection) {
+      vec3.add(center, center, this.gameEngine.gameObjects.require(id).transform.position)
+    }
+    return vec3.scale(center, center, 1 / selection.size)
+  }
 }
 registerConfigurableType("component", undefined, "selector", Selector)
 
@@ -183,6 +233,16 @@ class CameraController extends TypeScriptComponent {
 
   private _selectRegion? :GameObject
   private _selectStartPosition = vec3.create()
+
+  getXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
+    vec3.copy(tmpr.origin, this.transform.position)
+    vec3.subtract(tmpr.direction, hover.worldPosition, tmpr.origin)
+    vec3.normalize(tmpr.direction, tmpr.direction)
+    const distance = Plane.intersectRay(xzPlane, tmpr.origin, tmpr.direction)
+    if (!(distance > 0)) return false // could be NaN
+    Ray.getPoint(result, tmpr, distance)
+    return true
+  }
 
   reset () {
     // @ts-ignore zero does exist
@@ -216,7 +276,7 @@ class CameraController extends TypeScriptComponent {
     const mouse = this.gameEngine.ctx.hand!.mouse
     if (mouse.getButtonState(0).current && shiftKeyState.current) {
       selection.clear()
-      if (!this._getXZPlaneIntersection(hover, this._selectStartPosition)) return
+      if (!this.getXZPlaneIntersection(hover, this._selectStartPosition)) return
       this._selectRegion = this.gameEngine.createGameObject("select", {
         layerFlags: NONINTERACTIVE_LAYER_FLAG,
         hideFlags: EDITOR_HIDE_FLAG,
@@ -241,7 +301,7 @@ class CameraController extends TypeScriptComponent {
 
   onPointerDrag (identifier :number, hover :Hover) {
     if (this._selectRegion) {
-      if (!this._getXZPlaneIntersection(hover, tmpv)) return
+      if (!this.getXZPlaneIntersection(hover, tmpv)) return
       const transform = this._selectRegion.transform
       vec3.add(transform.position, this._selectStartPosition, tmpv)
       vec3.scale(transform.position, transform.localPosition, 0.5)
@@ -304,16 +364,6 @@ class CameraController extends TypeScriptComponent {
 
   onWheel (identifier :number, hover :Hover, delta :vec3) {
     this._addToDistance(0.5 * Math.sign(delta[1]))
-  }
-
-  private _getXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
-    vec3.copy(tmpr.origin, this.transform.position)
-    vec3.subtract(tmpr.direction, hover.worldPosition, tmpr.origin)
-    vec3.normalize(tmpr.direction, tmpr.direction)
-    const distance = Plane.intersectRay(xzPlane, tmpr.origin, tmpr.direction)
-    if (!(distance > 0)) return false // could be NaN
-    Ray.getPoint(result, tmpr, distance)
-    return true
   }
 
   private _addToDistance (amount :number) {
