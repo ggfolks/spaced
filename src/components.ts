@@ -112,7 +112,14 @@ class Selector extends TypeScriptComponent {
       const newRotation = quat.fromEuler(quat.create(), 0, newAngle, 0)
       const inverse = quat.invert(quat.create(), this.transform.rotation)
       quat.multiply(rotation, newRotation, inverse)
-      getSnapCenter(newCenter, bounds, true)
+
+      // use rotated bounds to find new, snapped center
+      const newBounds = Bounds.create()
+      vec3.copy(newBounds.min, bounds.min)
+      const size = Bounds.getSize(vec3.create(), bounds)
+      vec3.set(newBounds.max, bounds.min[0] + size[2], bounds.max[1], bounds.min[2] + size[0])
+      Bounds.getCenter(newCenter, newBounds)
+      getSnapCenter(newCenter, newBounds)
     }
     this._createAndApplyEdit(id => {
       const gameObject = this.gameEngine.gameObjects.require(id)
@@ -258,12 +265,11 @@ class Selector extends TypeScriptComponent {
 }
 registerConfigurableType("component", undefined, "selector", Selector)
 
-function getSnapCenter (inOut :vec3, bounds :Bounds, flip = false) :vec3 {
+function getSnapCenter (inOut :vec3, bounds :Bounds) :vec3 {
   const size = Bounds.getSize(vec3.create(), bounds)
-  const [idx0, idx1] = flip ? [2, 0] : [0, 2]
-  const refScale = vec3.fromValues(getSnapScale(size[idx0]), 1, getSnapScale(size[idx1]))
+  const refScale = vec3.fromValues(getSnapScale(size[0]), 1, getSnapScale(size[2]))
   roundToMultiple(size, refScale)
-  const refCenter = vec3.fromValues(size[idx0] / 2 - 0.5, inOut[1], size[idx1] / 2 - 0.5)
+  const refCenter = vec3.fromValues(size[0] / 2 - 0.5, inOut[1], size[2] / 2 - 0.5)
   vec3.subtract(inOut, inOut, refCenter)
   roundToMultiple(inOut, refScale)
   return vec3.add(inOut, inOut, refCenter)
