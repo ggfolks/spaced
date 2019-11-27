@@ -3,7 +3,7 @@ import {
 } from "three"
 
 import {Color} from "tfw/core/color"
-import {Bounds, Plane, Ray, clamp, quat, vec3} from "tfw/core/math"
+import {Bounds, Plane, Ray, clamp, quat, toDegree, vec3, vec3unitZ} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {Noop, NoopRemover, PMap} from "tfw/core/util"
 import {GameObject, Hover, Transform} from "tfw/engine/game"
@@ -85,20 +85,44 @@ class Selector extends TypeScriptComponent {
     const newCenter = vec3.add(intersection, intersection, this._intersectionToCenter)
     if (!shiftKeyState.current) {
       // use a center and scale for rounding that depends on the bounds of the selection
-      const bounds = this._getBounds()
-      const size = Bounds.getSize(vec3.create(), bounds)
-      const refScale = vec3.fromValues(getSnapScale(size[0]), 1, getSnapScale(size[2]))
-      roundToMultiple(size, refScale)
-      const refCenter = vec3.fromValues(size[0] / 2 - 0.5, newCenter[1], size[2] / 2 - 0.5)
-      vec3.subtract(newCenter, newCenter, refCenter)
-      roundToMultiple(newCenter, refScale)
-      vec3.add(newCenter, newCenter, refCenter)
+      getSnapCenter(newCenter, bounds)
     }
     this._createAndApplyEdit(id => {
       const gameObject = this.gameEngine.gameObjects.require(id)
       const offset = vec3.subtract(vec3.create(), gameObject.transform.position, oldCenter)
       return {
         transform: {position: vec3.add(offset, offset, newCenter)},
+      }
+    })
+  }
+
+  onWheel (identifier :number, hover :Hover, delta :vec3) {
+    const bounds = this._getBounds()
+    const oldCenter = Bounds.getCenter(vec3.create(), bounds)
+    const newCenter = vec3.clone(oldCenter)
+    const rotation = quat.create()
+    if (shiftKeyState.current) {
+      quat.fromEuler(rotation, 0, Math.sign(delta[1]), 0)
+
+    } else {
+      // snap to nearest 90 degree angle
+      const direction = vec3.transformQuat(vec3.create(), vec3unitZ, this.transform.rotation)
+      const oldAngle = toDegree(Math.atan2(direction[0], direction[2]))
+      const newAngle = 90 * (Math.round(oldAngle / 90) + Math.sign(delta[1]))
+      const newRotation = quat.fromEuler(quat.create(), 0, newAngle, 0)
+      const inverse = quat.invert(quat.create(), this.transform.rotation)
+      quat.multiply(rotation, newRotation, inverse)
+      getSnapCenter(newCenter, bounds, true)
+    }
+    this._createAndApplyEdit(id => {
+      const gameObject = this.gameEngine.gameObjects.require(id)
+      const offset = vec3.subtract(vec3.create(), gameObject.transform.position, oldCenter)
+      vec3.transformQuat(offset, offset, rotation)
+      return {
+        transform: {
+          position: vec3.add(offset, offset, newCenter),
+          rotation: quat.multiply(quat.create(), rotation, gameObject.transform.rotation),
+        },
       }
     })
   }
@@ -233,6 +257,17 @@ class Selector extends TypeScriptComponent {
   }
 }
 registerConfigurableType("component", undefined, "selector", Selector)
+
+function getSnapCenter (inOut :vec3, bounds :Bounds, flip = false) :vec3 {
+  const size = Bounds.getSize(vec3.create(), bounds)
+  const [idx0, idx1] = flip ? [2, 0] : [0, 2]
+  const refScale = vec3.fromValues(getSnapScale(size[idx0]), 1, getSnapScale(size[idx1]))
+  roundToMultiple(size, refScale)
+  const refCenter = vec3.fromValues(size[idx0] / 2 - 0.5, inOut[1], size[idx1] / 2 - 0.5)
+  vec3.subtract(inOut, inOut, refCenter)
+  roundToMultiple(inOut, refScale)
+  return vec3.add(inOut, inOut, refCenter)
+}
 
 function getSnapScale (size :number) :number {
   // use closet power of two if less than one, down to 0.25
