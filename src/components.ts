@@ -6,15 +6,16 @@ import {Color} from "tfw/core/color"
 import {Bounds, Plane, Ray, clamp, quat, toDegree, vec3, vec3unitZ} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {Noop, NoopRemover, PMap} from "tfw/core/util"
-import {GameObject, Hover, Transform} from "tfw/engine/game"
+import {DEFAULT_LAYER_FLAG, GameObject, Hover, Transform} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
-import {MeshRenderer, Model} from "tfw/engine/render"
+import {Camera, MeshRenderer, Model} from "tfw/engine/render"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
 
 import {
-  EDITOR_HIDE_FLAG, NONINTERACTIVE_LAYER_FLAG, OUTLINE_LAYER, SpaceEditConfig, applyEdit, selection,
+  CAMERA_LAYER_FLAG, EDITOR_HIDE_FLAG, NONINTERACTIVE_LAYER_FLAG, OUTLINE_LAYER,
+  SpaceEditConfig, applyEdit, selection,
 } from "./ui/model"
 
 let outlineCount = 0
@@ -344,6 +345,12 @@ class CameraController extends TypeScriptComponent {
           vec3.transformQuat(offset, vec3.set(offset, 0, 0, distance), this.transform.rotation)
           vec3.add(this.transform.position, target, offset)
         }),
+    )
+    this._disposer.add(
+      Value.join(controlKeyState, shiftKeyState).onValue(([control, shift]) => {
+        this.requireComponent<Camera>("camera").eventMask =
+          CAMERA_LAYER_FLAG | (control && shift ? 0 : DEFAULT_LAYER_FLAG)
+      }),
     )
   }
 

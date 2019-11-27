@@ -5,8 +5,7 @@ import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
-  DEFAULT_LAYER_FLAG, DEFAULT_PAGE, GameEngine, GameObject,
-  GameObjectConfig, PrimitiveTypes, SpaceConfig,
+  DEFAULT_PAGE, GameEngine, GameObject, GameObjectConfig, PrimitiveTypes, SpaceConfig,
 } from "tfw/engine/game"
 import {JavaScript} from "tfw/engine/util"
 import {getCurrentEditNumber} from "tfw/ui/element"
@@ -22,6 +21,7 @@ import {Preferences} from "../prefs"
 
 export const OUTLINE_LAYER = 1
 export const NONINTERACTIVE_LAYER_FLAG = (1 << 2)
+export const CAMERA_LAYER_FLAG = (1 << 3)
 
 export const EDITOR_HIDE_FLAG = (1 << 1)
 
@@ -808,12 +808,13 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
 function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
   return {
     editorCamera: {
+      layerFlags: CAMERA_LAYER_FLAG,
       hideFlags: EDITOR_HIDE_FLAG,
       transform: {
         localPosition: vec3.fromValues(0, 5, 5),
         localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
       },
-      camera: {eventMask: DEFAULT_LAYER_FLAG},
+      camera: {},
       cameraController: {},
     },
     editorGrid: {
