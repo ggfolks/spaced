@@ -212,7 +212,9 @@ class Selector extends TypeScriptComponent {
             pixelSize: {value: new Vector2()},
           },
         })
-        postScene.add(new Mesh(new PlaneBufferGeometry(2, 2), postMaterial))
+        const postMesh = new Mesh(new PlaneBufferGeometry(2, 2), postMaterial)
+        postMesh.frustumCulled = false
+        postScene.add(postMesh)
       }
       threeRenderEngine.onAfterRender = (scene, camera) => {
         renderer.getDrawingBufferSize(size)
