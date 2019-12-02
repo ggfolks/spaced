@@ -79,7 +79,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const canRedo = Mutable.local(false)
   const undoStack :FullGameObjectEdit[] = []
   const redoStack :FullGameObjectEdit[] = []
-  const editorObjects = createEditorObjects(gameEngine)
+  const automaticObjects = createAutomaticObjects(gameEngine)
   let currentVersion = 0
   const resetModel = () => {
     activeVersion.update(currentVersion)
@@ -89,7 +89,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     undoStack.length = 0
     redoStack.length = 0
     gameEngine.disposeGameObjects()
-    gameEngine.createGameObjects(editorObjects)
+    gameEngine.createGameObjects(automaticObjects)
   }
   resetModel()
   const loadConfig = (config :SpaceConfig) => {
@@ -713,18 +713,18 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         }
       }
       const pages = gameEngine.pages.current
-      const pageEditorObjects :SpaceConfig = {}
-      for (const key in editorObjects) {
-        const objectConfig = JavaScript.clone(editorObjects[key])
+      const pageAutomaticObjects :SpaceConfig = {}
+      for (const key in automaticObjects) {
+        const objectConfig = JavaScript.clone(automaticObjects[key])
         if (!objectConfig.transform) objectConfig.transform = {}
         objectConfig.transform.parentId = name
-        pageEditorObjects[getUnusedName(key)] = objectConfig
+        pageAutomaticObjects[getUnusedName(key)] = objectConfig
       }
       applyEdit({
         activePage: name,
         add: {
           [name]: {order: getOrder(pages[pages.length - 1]) + 1, page: {}},
-          ...pageEditorObjects,
+          ...pageAutomaticObjects,
         },
       })
     },
@@ -853,7 +853,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   })
 }
 
-function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
+function createAutomaticObjects (gameEngine :GameEngine) :SpaceConfig {
   return {
     editorCamera: {
       layerFlags: CAMERA_LAYER_FLAG,
@@ -883,6 +883,13 @@ function createEditorObjects (gameEngine :GameEngine) :SpaceConfig {
           fragmentShaderGraphConfig: {},
         },
       },
+    },
+    ambient: {
+      light: {},
+    },
+    directional: {
+      light: {lightType: "directional"},
+      transform: {localPosition: vec3.fromValues(1, 1, 1)},
     },
   }
 }
