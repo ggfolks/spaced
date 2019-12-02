@@ -6,7 +6,7 @@ import {Color} from "tfw/core/color"
 import {Bounds, Plane, Ray, clamp, quat, toDegree, vec3, vec3unitZ} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {Noop, NoopRemover, PMap} from "tfw/core/util"
-import {DEFAULT_LAYER_FLAG, GameObject, Hover, Transform} from "tfw/engine/game"
+import {DEFAULT_LAYER_FLAG, GameObject, Hover, Tile, Transform} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
 import {Camera, MeshRenderer, Model} from "tfw/engine/render"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
@@ -254,12 +254,22 @@ class Selector extends TypeScriptComponent {
 
   private _getBounds () :Bounds {
     const bounds = Bounds.empty(Bounds.create())
+    const tileBounds = Bounds.create()
     this._applyToIds(id => {
       const gameObject = this.gameEngine.gameObjects.require(id)
-      const model = gameObject.getComponent<Model>("model")
-      if (model) Bounds.union(bounds, bounds, model.bounds)
-      const meshRenderer = gameObject.getComponent<MeshRenderer>("meshRenderer")
-      if (meshRenderer) Bounds.union(bounds, bounds, meshRenderer.bounds)
+      const tile = gameObject.getComponent<Tile>("tile")
+      if (tile) {
+        vec3.copy(tileBounds.min, tile.min)
+        vec3.copy(tileBounds.max, tile.max)
+        Bounds.transformMat4(tileBounds, tileBounds, gameObject.transform.localToWorldMatrix)
+        Bounds.union(bounds, bounds, tileBounds)
+
+      } else {
+        const model = gameObject.getComponent<Model>("model")
+        if (model) Bounds.union(bounds, bounds, model.bounds)
+        const meshRenderer = gameObject.getComponent<MeshRenderer>("meshRenderer")
+        if (meshRenderer) Bounds.union(bounds, bounds, meshRenderer.bounds)
+      }
     })
     return bounds
   }
