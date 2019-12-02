@@ -192,12 +192,19 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     for (let ii = 2; gameEngine.gameObjects.has(name); ii++) name = base + ii
     return name
   }
+  const getPageParentId = () => {
+    const activePage = gameEngine.activePage.current
+    return (activePage === DEFAULT_PAGE) ? undefined : activePage
+  }
+  const getNextPageOrder = () => {
+    const rootIds = gameEngine.rootIds.current
+    return (rootIds.length === 0) ? 0 : getOrder(rootIds[rootIds.length - 1]) + 1
+  }
   const createObject = (type :string, config :GameObjectConfig) => {
     const name = getUnusedName(type)
-    const activePage = gameEngine.activePage.current
-    if (activePage !== DEFAULT_PAGE) config.transform = {parentId: activePage}
-    const rootIds = gameEngine.rootIds.current
-    config.order = rootIds.length === 0 ? 0 : getOrder(rootIds[rootIds.length - 1]) + 1
+    const parentId = getPageParentId()
+    if (parentId !== undefined) config.transform = {parentId}
+    config.order = getNextPageOrder()
     config.selector = {hideFlags: EDITOR_HIDE_FLAG}
     applyEdit({selection: new Set([name]), add: {[name]: config}})
   }
@@ -223,6 +230,49 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const remove = new Set<string>()
     for (const id of selection) addSubtreeToSet(remove, id)
     applyEdit({selection: new Set(), remove})
+  }
+  const pasteFromClipboard = () => {
+    const add :SpaceConfig = {}
+    const configs = clipboard.current
+    const newIds = new Map<string, string>()
+    for (const id in configs) newIds.set(id, getUnusedName(id))
+    const replaceIds = (config :PMap<any>) => {
+      const newConfig :PMap<any> = {}
+      for (const key in config) {
+        const value = config[key]
+        if (typeof value === "string" && key.endsWith("Id")) {
+          const newId = newIds.get(value)
+          if (newId) newConfig[key] = newId
+
+        } else if (
+          typeof value === "object" &&
+          value !== null &&
+          Object.getPrototypeOf(value) === Object.prototype
+        ) {
+          newConfig[key] = replaceIds(value)
+
+        } else {
+          newConfig[key] = value
+        }
+      }
+      return newConfig
+    }
+    const selection = new Set<string>()
+    const pageParentId = getPageParentId()
+    let nextPageOrder = getNextPageOrder()
+    for (const id in configs) {
+      const newId = newIds.get(id)!
+      selection.add(newId)
+      const newConfig = replaceIds(configs[id])
+      if (!(newConfig.transform && newConfig.transform.parentId)) {
+        if (!newConfig.transform) newConfig.transform = {}
+        newConfig.transform.parentId = pageParentId
+        newConfig.order = nextPageOrder++
+      }
+      newConfig.selector = {hideFlags: EDITOR_HIDE_FLAG}
+      add[newId] = newConfig
+    }
+    applyEdit({selection, add})
   }
   function getCategoryModel (category :CategoryNode) :ElementsModel<string> {
     return mapModel(category.children.keysValue, category.children, (value, key) => {
@@ -415,9 +465,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       removeSelected()
     }, haveSelection),
     copy: new Command(copySelected, haveSelection),
-    paste: new Command(() => {
-      // TODO
-    }, clipboard.map(Boolean)),
+    paste: new Command(pasteFromClipboard, clipboard.map(Boolean)),
     delete: new Command(removeSelected, haveSelection),
     selectAll: () => {
       const set = new Set<string>()
@@ -873,6 +921,7 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
     const reverseRemove = new Set<string>()
     if (edit.remove) {
       for (const id of edit.remove) {
+        selection.delete(id)
         const gameObject = gameEngine.gameObjects.require(id)
         reverseAdd[id] = gameObject.createConfig()
         gameObject.dispose()
