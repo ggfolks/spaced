@@ -1008,7 +1008,8 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
                 const property = component.getProperty(key) as Mutable<any>
                 const currentValue = property.current
                 reverseComponentConfig[key] = currentValue === undefined ? null : currentValue
-                property.update(componentEditConfig[key])
+                const newValue = componentEditConfig[key]
+                property.update(newValue === null ? undefined : newValue)
               }
             } else {
               reverseConfig[key] = component.createConfig()
@@ -1023,7 +1024,8 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
               const property = gameObject.getProperty(key) as Mutable<any>
               const currentValue = property.current
               reverseConfig[key] = currentValue === undefined ? null : currentValue
-              property.update(editConfig[key])
+              const newValue = editConfig[key]
+              property.update(newValue === null ? undefined : newValue)
             }
           }
         }
