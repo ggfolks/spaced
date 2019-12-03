@@ -792,11 +792,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
       const gameObject = gameEngine.gameObjects.require(key as string)
       const activePage = gameEngine.activePage.current
-      let parentId :string|null
+      let parentId :string|undefined
       let childIds :string[]
       let newExpanded = new Set(expanded)
       if (parent === undefined) {
-        parentId = (activePage === DEFAULT_PAGE) ? null : activePage
+        parentId = (activePage === DEFAULT_PAGE) ? undefined : activePage
         childIds = gameEngine.rootIds.current
       } else {
         parentId = parent as string
@@ -804,8 +804,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         newExpanded.add(parentId)
       }
       const edit :PMap<any> = {}
-      // null is equivalent to undefined in this case, hence != rather than !==
-      if (parentId != gameObject.transform.parentId) edit.transform = {parentId}
+      if (parentId !== gameObject.transform.parentId) edit.transform = {parentId}
       if (childIds.indexOf(key as string) !== index) {
         edit.order = getNewOrder(childIds, index, getOrder)
       }
@@ -844,7 +843,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         return new Model({
           type: Value.constant(key),
           removable: Value.constant(component.removable),
-          remove: () => applyToSelection({[key]: null}),
+          remove: () => applyToSelection({[key]: undefined}),
           actionsModel: dataModel(key === "transform" ? {
             reset: {
               name: Value.constant("Reset"),
@@ -1017,9 +1016,9 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
               for (const key in componentEditConfig) {
                 const property = component.getProperty(key) as Mutable<any>
                 const currentValue = property.current
-                reverseComponentConfig[key] = currentValue === undefined ? null : currentValue
+                reverseComponentConfig[key] = JavaScript.clone(currentValue)
                 const newValue = componentEditConfig[key]
-                property.update(newValue === null ? undefined : newValue)
+                property.update(newValue)
               }
             } else {
               reverseConfig[key] = component.createConfig()
@@ -1028,14 +1027,14 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
           } else {
             const value = gameObject[key]
             if (value === undefined) {
-              reverseConfig[key] = null
+              reverseConfig[key] = undefined
               gameObject.addComponent(key, editConfig[key])
             } else {
               const property = gameObject.getProperty(key) as Mutable<any>
               const currentValue = property.current
-              reverseConfig[key] = currentValue === undefined ? null : currentValue
+              reverseConfig[key] = JavaScript.clone(currentValue)
               const newValue = editConfig[key]
-              property.update(newValue === null ? undefined : newValue)
+              property.update(newValue)
             }
           }
         }
