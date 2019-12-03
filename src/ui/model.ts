@@ -5,7 +5,8 @@ import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
-  DEFAULT_PAGE, GameEngine, GameObject, GameObjectConfig, PrimitiveTypes, SpaceConfig,
+  DEFAULT_PAGE, NO_HIDE_FLAGS_MASK, GameEngine, GameObject,
+  GameObjectConfig, PrimitiveTypes, SpaceConfig,
 } from "tfw/engine/game"
 import {JavaScript} from "tfw/engine/util"
 import {MOUSE_ID} from "tfw/input/hand"
@@ -215,7 +216,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const addSubtreeToConfig = (config :SpaceConfig, rootId :string) => {
     if (config[rootId]) return
     const gameObject = gameEngine.gameObjects.require(rootId)
-    config[rootId] = gameObject.createConfig()
+    config[rootId] = gameObject.createConfig(NO_HIDE_FLAGS_MASK)
     for (const childId of gameObject.transform.childIds.current) {
       addSubtreeToConfig(config, childId)
     }
@@ -302,7 +303,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         newConfig.transform.parentId = pageParentId
         newConfig.order = nextPageOrder++
       }
-      newConfig.selector = {hideFlags: EDITOR_HIDE_FLAG}
       add[newId] = newConfig
     }
     applyEdit({selection, add})
@@ -462,15 +462,16 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     }),
     ...electronActions,
     undo: new Command(() => {
+      const oldActivePage = gameEngine.activePage.current
       const oldSelection = new Set(selection)
       const oldExpanded = new Set(expanded)
       const edit = undoStack.pop()!
-      gameEngine.activePage.update(edit.activePage)
       const reverseEdit = pageEditor(edit)
+      gameEngine.activePage.update(edit.activePage)
       setIdSet(selection, edit.selection)
       setIdSet(expanded, edit.expanded)
       reverseEdit.version = activeVersion.current
-      reverseEdit.activePage = edit.activePage
+      reverseEdit.activePage = oldActivePage
       reverseEdit.selection = oldSelection
       reverseEdit.expanded = oldExpanded
       redoStack.push(reverseEdit)
@@ -479,15 +480,16 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       activeVersion.update(edit.version)
     }, canUndo),
     redo: new Command(() => {
+      const oldActivePage = gameEngine.activePage.current
       const oldSelection = new Set(selection)
       const oldExpanded = new Set(expanded)
       const edit = redoStack.pop()!
-      gameEngine.activePage.update(edit.activePage)
       const reverseEdit = pageEditor(edit)
+      gameEngine.activePage.update(edit.activePage)
       setIdSet(selection, edit.selection)
       setIdSet(expanded, edit.expanded)
       reverseEdit.version = activeVersion.current
-      reverseEdit.activePage = edit.activePage
+      reverseEdit.activePage = oldActivePage
       reverseEdit.selection = oldSelection
       reverseEdit.expanded = oldExpanded
       undoStack.push(reverseEdit)
@@ -901,6 +903,7 @@ function createAutomaticObjects (gameEngine :GameEngine) :SpaceConfig {
       cameraController: {},
     },
     editorGrid: {
+      order: 1,
       layerFlags: NONINTERACTIVE_LAYER_FLAG,
       hideFlags: EDITOR_HIDE_FLAG,
       transform: {
@@ -920,9 +923,11 @@ function createAutomaticObjects (gameEngine :GameEngine) :SpaceConfig {
       },
     },
     ambient: {
+      order: 2,
       light: {},
     },
     directional: {
+      order: 3,
       light: {lightType: "directional"},
       transform: {localPosition: vec3.fromValues(1, 1, 1)},
     },
@@ -965,7 +970,7 @@ function createGameObjectEditor (gameEngine :GameEngine, models :Map<ModelKey, M
       for (const id of edit.remove) {
         selection.delete(id)
         const gameObject = gameEngine.gameObjects.require(id)
-        reverseAdd[id] = gameObject.createConfig()
+        reverseAdd[id] = gameObject.createConfig(NO_HIDE_FLAGS_MASK)
         gameObject.dispose()
         models.delete(id)
       }
