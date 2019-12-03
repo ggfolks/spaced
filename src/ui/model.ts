@@ -32,6 +32,7 @@ export interface SpaceEditConfig {
 
 export interface GameObjectEdit {
   editNumber? :number
+  version? :number
   activePage? :string
   selection? :Set<string>
   expanded? :Set<string>
@@ -41,6 +42,7 @@ export interface GameObjectEdit {
 }
 
 interface FullGameObjectEdit extends GameObjectEdit {
+  version :number
   activePage :string
   selection :Set<string>
   expanded :Set<string>
@@ -141,6 +143,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       }
     } else {
       reverseEdit.editNumber = currentEditNumber
+      reverseEdit.version = activeVersion.current
       reverseEdit.activePage = oldActivePage
       reverseEdit.selection = oldSelection
       reverseEdit.expanded = oldExpanded
@@ -466,13 +469,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       const reverseEdit = pageEditor(edit)
       setIdSet(selection, edit.selection)
       setIdSet(expanded, edit.expanded)
+      reverseEdit.version = activeVersion.current
       reverseEdit.activePage = edit.activePage
       reverseEdit.selection = oldSelection
       reverseEdit.expanded = oldExpanded
       redoStack.push(reverseEdit)
       canRedo.update(true)
       canUndo.update(undoStack.length > 0)
-      activeVersion.update(activeVersion.current - 1)
+      activeVersion.update(edit.version)
     }, canUndo),
     redo: new Command(() => {
       const oldSelection = new Set(selection)
@@ -482,13 +486,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       const reverseEdit = pageEditor(edit)
       setIdSet(selection, edit.selection)
       setIdSet(expanded, edit.expanded)
+      reverseEdit.version = activeVersion.current
       reverseEdit.activePage = edit.activePage
       reverseEdit.selection = oldSelection
       reverseEdit.expanded = oldExpanded
       undoStack.push(reverseEdit)
       canUndo.update(true)
       canRedo.update(redoStack.length > 0)
-      activeVersion.update(activeVersion.current + 1)
+      activeVersion.update(edit.version)
     }, canRedo),
     cut: new Command(() => {
       copySelected()
