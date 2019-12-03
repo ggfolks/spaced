@@ -1,5 +1,5 @@
 import {refEquals} from "tfw/core/data"
-import {dim2, quat, vec3} from "tfw/core/math"
+import {Bounds, dim2, quat, vec2, vec3} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
@@ -8,6 +8,7 @@ import {
   DEFAULT_PAGE, GameEngine, GameObject, GameObjectConfig, PrimitiveTypes, SpaceConfig,
 } from "tfw/engine/game"
 import {JavaScript} from "tfw/engine/util"
+import {MOUSE_ID} from "tfw/input/hand"
 import {getCurrentEditNumber} from "tfw/ui/element"
 import {
   Action, Command, Model, ModelData, ModelKey, ElementsModel, dataModel, makeModel, mapModel,
@@ -16,7 +17,8 @@ import {Property} from "tfw/ui/property"
 import {UI} from "tfw/ui/ui"
 
 import {createPrefsConfig} from "./config"
-import "../components"
+import "../components" // make sure we execute the module
+import {CameraController, Selector} from "../components"
 import {Preferences} from "../prefs"
 
 export const OUTLINE_LAYER = 1
@@ -209,15 +211,29 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     applyEdit({selection: new Set([name]), add: {[name]: config}})
   }
   const addSubtreeToConfig = (config :SpaceConfig, rootId :string) => {
+    if (config[rootId]) return
     const gameObject = gameEngine.gameObjects.require(rootId)
     config[rootId] = gameObject.createConfig()
     for (const childId of gameObject.transform.childIds.current) {
       addSubtreeToConfig(config, childId)
     }
   }
+  const clipboardOffsets = new Map<string, vec3>()
   const copySelected = () => {
+    clipboardOffsets.clear()
     const config :SpaceConfig = {}
-    for (const id of selection) addSubtreeToConfig(config, id)
+    const firstId = selection.values().next().value
+    const selector = gameEngine.gameObjects.require(firstId).requireComponent<Selector>("selector")
+    const bounds = selector.getGroupBounds()
+    const center = Bounds.getCenter(vec3.create(), bounds)
+    center[1] = 0
+    for (const id of selection) {
+      addSubtreeToConfig(config, id)
+      const transform = gameEngine.gameObjects.require(id).transform
+      if (!(transform.parentId && selection.has(transform.parentId))) {
+        clipboardOffsets.set(id, vec3.subtract(vec3.create(), transform.position, center))
+      }
+    }
     clipboard.update(config)
   }
   const addSubtreeToSet = (set :Set<string>, rootId :string) => {
@@ -260,12 +276,25 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const selection = new Set<string>()
     const pageParentId = getPageParentId()
     let nextPageOrder = getNextPageOrder()
+    const newCenter = vec3.create()
+    const camera = gameEngine.renderEngine.activeCameras[0]
+    if (camera) {
+      const cameraController = camera.getComponent<CameraController>("cameraController")
+      if (cameraController) {
+        const pointer = gameEngine.ctx.hand!.pointers.get(MOUSE_ID)
+        const ray = pointer
+          ? camera.screenPointToRay(pointer.position)
+          : camera.viewportPointToRay(vec2.fromValues(0.5, 0.5))
+        cameraController.getRayXZPlaneIntersection(ray, newCenter)
+      }
+    }
     for (const id in configs) {
       const newId = newIds.get(id)!
       selection.add(newId)
       const newConfig = replaceIds(configs[id])
       if (!(newConfig.transform && newConfig.transform.parentId)) {
         if (!newConfig.transform) newConfig.transform = {}
+        newConfig.transform.position = vec3.add(vec3.create(), newCenter, clipboardOffsets.get(id)!)
         newConfig.transform.parentId = pageParentId
         newConfig.order = nextPageOrder++
       }

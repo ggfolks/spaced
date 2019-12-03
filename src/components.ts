@@ -32,7 +32,7 @@ let postMaterial :ShaderMaterial|undefined
 const controlKeyState = Keyboard.instance.getKeyState(17)
 const shiftKeyState = Keyboard.instance.getKeyState(16)
 
-class Selector extends TypeScriptComponent {
+export class Selector extends TypeScriptComponent {
   readonly groupHovered = Mutable.local(false)
 
   private _outlineObject? :Object3D
@@ -58,6 +58,28 @@ class Selector extends TypeScriptComponent {
     )
   }
 
+  getGroupBounds () :Bounds {
+    const bounds = Bounds.empty(Bounds.create())
+    const tileBounds = Bounds.create()
+    this._applyToGroupIds(id => {
+      const gameObject = this.gameEngine.gameObjects.require(id)
+      const tile = gameObject.getComponent<Tile>("tile")
+      if (tile) {
+        vec3.copy(tileBounds.min, tile.min)
+        vec3.copy(tileBounds.max, tile.max)
+        Bounds.transformMat4(tileBounds, tileBounds, gameObject.transform.localToWorldMatrix)
+        Bounds.union(bounds, bounds, tileBounds)
+
+      } else {
+        const model = gameObject.getComponent<Model>("model")
+        if (model) Bounds.union(bounds, bounds, model.bounds)
+        const meshRenderer = gameObject.getComponent<MeshRenderer>("meshRenderer")
+        if (meshRenderer) Bounds.union(bounds, bounds, meshRenderer.bounds)
+      }
+    })
+    return bounds
+  }
+
   onPointerDown (identifier :number, hover :Hover) {
     if (controlKeyState.current) {
       if (selection.has(this.gameObject.id)) selection.delete(this.gameObject.id)
@@ -68,8 +90,8 @@ class Selector extends TypeScriptComponent {
       selection.add(this.gameObject.id)
     }
     const intersection = vec3.create()
-    if (this._getXZPlaneIntersection(hover, intersection)) {
-      const bounds = this._getBounds()
+    if (this._getHoverXZPlaneIntersection(hover, intersection)) {
+      const bounds = this.getGroupBounds()
       const center = Bounds.getCenter(vec3.create(), bounds)
       this._intersectionToCenter = vec3.subtract(intersection, center, intersection)
     } else {
@@ -80,8 +102,8 @@ class Selector extends TypeScriptComponent {
   onPointerDrag (identifier :number, hover :Hover) {
     if (!this._intersectionToCenter) return
     const intersection = vec3.create()
-    if (!this._getXZPlaneIntersection(hover, intersection)) return
-    const bounds = this._getBounds()
+    if (!this._getHoverXZPlaneIntersection(hover, intersection)) return
+    const bounds = this.getGroupBounds()
     const oldCenter = Bounds.getCenter(vec3.create(), bounds)
     const newCenter = vec3.add(intersection, intersection, this._intersectionToCenter)
     if (!shiftKeyState.current) {
@@ -98,7 +120,7 @@ class Selector extends TypeScriptComponent {
   }
 
   onWheel (identifier :number, hover :Hover, delta :vec3) {
-    const bounds = this._getBounds()
+    const bounds = this.getGroupBounds()
     const oldCenter = Bounds.getCenter(vec3.create(), bounds)
     const newCenter = vec3.clone(oldCenter)
     const rotation = quat.create()
@@ -137,16 +159,8 @@ class Selector extends TypeScriptComponent {
 
   private _createAndApplyEdit (createForId :(id :string) => PMap<any>) {
     const edit :SpaceEditConfig = {}
-    this._applyToIds(id => edit[id] = createForId(id))
+    this._applyToGroupIds(id => edit[id] = createForId(id))
     applyEdit({edit})
-  }
-
-  private _applyToIds (op :(id :string) => void) {
-    if (selection.has(this.gameObject.id)) {
-      for (const id of selection) op(id)
-    } else {
-      op(this.gameObject.id)
-    }
   }
 
   private _setOutline (object :Object3D, selected :boolean) {
@@ -247,33 +261,19 @@ class Selector extends TypeScriptComponent {
     if (--outlineCount === 0) outlineRemover()
   }
 
-  private _getXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
+  private _getHoverXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
     const activeCamera = this.gameEngine.renderEngine.activeCameras[0]
     if (!activeCamera) return false
     const controller = activeCamera.requireComponent<CameraController>("cameraController")
-    return controller.getXZPlaneIntersection(hover, result)
+    return controller.getHoverXZPlaneIntersection(hover, result)
   }
 
-  private _getBounds () :Bounds {
-    const bounds = Bounds.empty(Bounds.create())
-    const tileBounds = Bounds.create()
-    this._applyToIds(id => {
-      const gameObject = this.gameEngine.gameObjects.require(id)
-      const tile = gameObject.getComponent<Tile>("tile")
-      if (tile) {
-        vec3.copy(tileBounds.min, tile.min)
-        vec3.copy(tileBounds.max, tile.max)
-        Bounds.transformMat4(tileBounds, tileBounds, gameObject.transform.localToWorldMatrix)
-        Bounds.union(bounds, bounds, tileBounds)
-
-      } else {
-        const model = gameObject.getComponent<Model>("model")
-        if (model) Bounds.union(bounds, bounds, model.bounds)
-        const meshRenderer = gameObject.getComponent<MeshRenderer>("meshRenderer")
-        if (meshRenderer) Bounds.union(bounds, bounds, meshRenderer.bounds)
-      }
-    })
-    return bounds
+  private _applyToGroupIds (op :(id :string) => void) {
+    if (selection.has(this.gameObject.id)) {
+      for (const id of selection) op(id)
+    } else {
+      op(this.gameObject.id)
+    }
   }
 }
 registerConfigurableType("component", undefined, "selector", Selector)
@@ -313,7 +313,7 @@ let lastSelectors = new Set<Selector>()
 // a scale that's very small, but nonzero (to avoid noninvertible matrices)
 const SMALL_SCALE = 0.000001
 
-class CameraController extends TypeScriptComponent {
+export class CameraController extends TypeScriptComponent {
   @property("vec3") target = vec3.create()
   @property("number") azimuth = 0
   @property("number") elevation = -45
@@ -322,13 +322,17 @@ class CameraController extends TypeScriptComponent {
   private _selectRegion? :GameObject
   private _selectStartPosition = vec3.create()
 
-  getXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
+  getHoverXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
     vec3.copy(tmpr.origin, this.transform.position)
     vec3.subtract(tmpr.direction, hover.worldPosition, tmpr.origin)
     vec3.normalize(tmpr.direction, tmpr.direction)
-    const distance = Plane.intersectRay(xzPlane, tmpr.origin, tmpr.direction)
+    return this.getRayXZPlaneIntersection(tmpr, result)
+  }
+
+  getRayXZPlaneIntersection (ray :Ray, result :vec3) :boolean {
+    const distance = Plane.intersectRay(xzPlane, ray.origin, ray.direction)
     if (!(distance > 0)) return false // could be NaN
-    Ray.getPoint(result, tmpr, distance)
+    Ray.getPoint(result, ray, distance)
     return true
   }
 
@@ -370,7 +374,7 @@ class CameraController extends TypeScriptComponent {
     const mouse = this.gameEngine.ctx.hand!.mouse
     if (mouse.getButtonState(0).current && shiftKeyState.current) {
       selection.clear()
-      if (!this.getXZPlaneIntersection(hover, this._selectStartPosition)) return
+      if (!this.getHoverXZPlaneIntersection(hover, this._selectStartPosition)) return
       this._selectRegion = this.gameEngine.createGameObject("select", {
         layerFlags: NONINTERACTIVE_LAYER_FLAG,
         hideFlags: EDITOR_HIDE_FLAG,
@@ -395,7 +399,7 @@ class CameraController extends TypeScriptComponent {
 
   onPointerDrag (identifier :number, hover :Hover) {
     if (this._selectRegion) {
-      if (!this.getXZPlaneIntersection(hover, tmpv)) return
+      if (!this.getHoverXZPlaneIntersection(hover, tmpv)) return
       const transform = this._selectRegion.transform
       vec3.add(transform.position, this._selectStartPosition, tmpv)
       vec3.scale(transform.position, transform.localPosition, 0.5)
