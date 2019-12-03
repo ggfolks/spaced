@@ -100,7 +100,12 @@ export function createUIConfig (minSize :Value<dim2>) :Root.Config {
 
       KeyX: {[CtrlMask]: "cut", [MetaMask]: "cut"},
       KeyC: {[CtrlMask]: "copy", [MetaMask]: "copy"},
-      KeyV: {[CtrlMask]: "paste", [MetaMask]: "paste"},
+      KeyV: {
+        [CtrlMask]: "paste",
+        [MetaMask]: "paste",
+        [CtrlMask|ShiftMask]: "paste",
+        [MetaMask|ShiftMask]: "paste",
+      },
       KeyA: {[CtrlMask]: "selectAll", [MetaMask]: "selectAll"},
 
       Delete: {0: "delete"},

@@ -58,8 +58,8 @@ export class Selector extends TypeScriptComponent {
     )
   }
 
-  getGroupBounds () :Bounds {
-    const bounds = Bounds.empty(Bounds.create())
+  getGroupBounds (result = Bounds.create()) :Bounds {
+    Bounds.empty(result)
     const tileBounds = Bounds.create()
     this._applyToGroupIds(id => {
       const gameObject = this.gameEngine.gameObjects.require(id)
@@ -68,16 +68,16 @@ export class Selector extends TypeScriptComponent {
         vec3.copy(tileBounds.min, tile.min)
         vec3.copy(tileBounds.max, tile.max)
         Bounds.transformMat4(tileBounds, tileBounds, gameObject.transform.localToWorldMatrix)
-        Bounds.union(bounds, bounds, tileBounds)
+        Bounds.union(result, result, tileBounds)
 
       } else {
         const model = gameObject.getComponent<Model>("model")
-        if (model) Bounds.union(bounds, bounds, model.bounds)
+        if (model) Bounds.union(result, result, model.bounds)
         const meshRenderer = gameObject.getComponent<MeshRenderer>("meshRenderer")
-        if (meshRenderer) Bounds.union(bounds, bounds, meshRenderer.bounds)
+        if (meshRenderer) Bounds.union(result, result, meshRenderer.bounds)
       }
     })
-    return bounds
+    return result
   }
 
   onPointerDown (identifier :number, hover :Hover) {
@@ -106,10 +106,7 @@ export class Selector extends TypeScriptComponent {
     const bounds = this.getGroupBounds()
     const oldCenter = Bounds.getCenter(vec3.create(), bounds)
     const newCenter = vec3.add(intersection, intersection, this._intersectionToCenter)
-    if (!shiftKeyState.current) {
-      // use a center and scale for rounding that depends on the bounds of the selection
-      getSnapCenter(newCenter, bounds)
-    }
+    maybeGetSnapCenter(newCenter, bounds)
     this._createAndApplyEdit(id => {
       const gameObject = this.gameEngine.gameObjects.require(id)
       const offset = vec3.subtract(vec3.create(), gameObject.transform.position, oldCenter)
@@ -277,6 +274,10 @@ export class Selector extends TypeScriptComponent {
   }
 }
 registerConfigurableType("component", undefined, "selector", Selector)
+
+export function maybeGetSnapCenter (inOut :vec3, bounds :Bounds) :vec3 {
+  return shiftKeyState.current ? inOut : getSnapCenter(inOut, bounds)
+}
 
 function getSnapCenter (inOut :vec3, bounds :Bounds) :vec3 {
   const size = Bounds.getSize(vec3.create(), bounds)

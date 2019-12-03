@@ -17,8 +17,7 @@ import {Property} from "tfw/ui/property"
 import {UI} from "tfw/ui/ui"
 
 import {createPrefsConfig} from "./config"
-import "../components" // make sure we execute the module
-import {CameraController, Selector} from "../components"
+import {CameraController, Selector, maybeGetSnapCenter} from "../components"
 import {Preferences} from "../prefs"
 
 export const OUTLINE_LAYER = 1
@@ -219,13 +218,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     }
   }
   const clipboardOffsets = new Map<string, vec3>()
+  const clipboardBounds = Bounds.create()
   const copySelected = () => {
     clipboardOffsets.clear()
     const config :SpaceConfig = {}
     const firstId = selection.values().next().value
     const selector = gameEngine.gameObjects.require(firstId).requireComponent<Selector>("selector")
-    const bounds = selector.getGroupBounds()
-    const center = Bounds.getCenter(vec3.create(), bounds)
+    selector.getGroupBounds(clipboardBounds)
+    const center = Bounds.getCenter(vec3.create(), clipboardBounds)
     center[1] = 0
     for (const id of selection) {
       addSubtreeToConfig(config, id)
@@ -288,6 +288,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         cameraController.getRayXZPlaneIntersection(ray, newCenter)
       }
     }
+    maybeGetSnapCenter(newCenter, clipboardBounds)
     for (const id in configs) {
       const newId = newIds.get(id)!
       selection.add(newId)
