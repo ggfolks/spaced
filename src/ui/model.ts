@@ -728,10 +728,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
             name: Value.constant("Explode"),
             enabled: haveSelection,
             action: () => {
+              const oldSelection = new Set(selection)
               const matrix = mat4.create()
               const remove = new Set<string>()
-              const selection = new Set<string>()
-              for (const id of selection) {
+              const newSelection = new Set<string>()
+              for (const id of oldSelection) {
                 addSubtreeToSet(remove, id)
                 const gameObject = gameEngine.gameObjects.require(id)
                 const transform = gameObject.transform
@@ -740,7 +741,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                   decodeFused(fusedModels.encoded, (url, position, rotation, scale, flags) => {
                     mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
                     mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
-                    selection.add(createObject("model", {
+                    newSelection.add(createObject("model", {
                       transform: {
                         localPosition: mat4.getTranslation(vec3.create(), matrix),
                         localRotation: mat4.getRotation(quat.create(), matrix),
@@ -752,7 +753,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                   })
                 }
               }
-              applyEdit({selection, remove})
+              applyEdit({selection: newSelection, remove})
             },
           },
         }),
