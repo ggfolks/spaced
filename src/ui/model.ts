@@ -193,9 +193,15 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       },
     }
   }
-  const getUnusedName = (base :string) => {
-    let name = base
-    for (let ii = 2; gameEngine.gameObjects.has(name); ii++) name = base + ii
+  const NUMERIC_SUFFIX = /\d+$/
+  const getUnusedName = (base :string, adding? :SpaceConfig) => {
+    // strip off any existing numeric suffix
+    let name = base.replace(NUMERIC_SUFFIX, "")
+    for (
+      let ii = 2;
+      gameEngine.gameObjects.has(name) || (adding && adding[name]);
+      ii++
+    ) name = base + ii
     return name
   }
   const getPageParentId = () => {
@@ -260,7 +266,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const add :SpaceConfig = {}
     const configs = clipboard.current
     const newIds = new Map<string, string>()
-    for (const id in configs) newIds.set(id, getUnusedName(id))
+    for (const id in configs) {
+      const newId = getUnusedName(id, add)
+      newIds.set(id, newId)
+      add[newId] = {}
+    }
     const replaceIds = (config :PMap<any>) => {
       const newConfig :PMap<any> = {}
       for (const key in config) {
@@ -741,12 +751,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                 const transform = gameObject.transform
                 const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
                 if (fusedModels) {
-                  const baseName = gameObject.name + "_"
-                  let index = 0
                   decodeFused(fusedModels.encoded, (url, position, rotation, scale, flags) => {
                     mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
                     mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
-                    const modelId = getUnusedName(baseName + index++)
+                    const modelId = getUnusedName("model", add)
                     newSelection.add(modelId)
                     add[modelId] = {
                       order: order++,
@@ -862,7 +870,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         const objectConfig = JavaScript.clone(automaticObjects[key])
         if (!objectConfig.transform) objectConfig.transform = {}
         objectConfig.transform.parentId = name
-        pageAutomaticObjects[getUnusedName(key)] = objectConfig
+        pageAutomaticObjects[getUnusedName(key, pageAutomaticObjects)] = objectConfig
       }
       applyEdit({
         activePage: name,
