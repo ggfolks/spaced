@@ -730,30 +730,40 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
             action: () => {
               const oldSelection = new Set(selection)
               const matrix = mat4.create()
+              const add :SpaceConfig = {}
               const remove = new Set<string>()
               const newSelection = new Set<string>()
+              const parentId = getPageParentId()
+              let order = getNextPageOrder()
               for (const id of oldSelection) {
                 addSubtreeToSet(remove, id)
                 const gameObject = gameEngine.gameObjects.require(id)
                 const transform = gameObject.transform
                 const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
                 if (fusedModels) {
+                  const baseName = gameObject.name + "_"
+                  let index = 0
                   decodeFused(fusedModels.encoded, (url, position, rotation, scale, flags) => {
                     mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
                     mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
-                    newSelection.add(createObject("model", {
+                    const modelId = getUnusedName(baseName + index++)
+                    newSelection.add(modelId)
+                    add[modelId] = {
+                      order: order++,
                       transform: {
+                        parentId,
                         localPosition: mat4.getTranslation(vec3.create(), matrix),
                         localRotation: mat4.getRotation(quat.create(), matrix),
                         localScale: mat4.getScaling(vec3.create(), matrix),
                       },
                       model: {url},
                       tile: {walkable: Boolean(flags & WALKABLE_FLAG)},
-                    }))
+                      selector: {hideFlags: EDITOR_HIDE_FLAG},
+                    }
                   })
                 }
               }
-              applyEdit({selection: newSelection, remove})
+              applyEdit({selection: newSelection, add, remove})
             },
           },
         }),
