@@ -691,7 +691,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                 const gameObject = gameEngine.gameObjects.require(id)
                 const transform = gameObject.transform
                 const model = gameObject.getComponent<RenderModel>("model")
-                if (model && model.url) {
+                if (model) {
                   const tile = gameObject.getComponent<Tile>("tile")
                   encoder.add(
                     model.url,
