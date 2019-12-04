@@ -697,7 +697,9 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
               const tmpr = quat.create()
               const tmps = vec3.create()
               const matrix = mat4.create()
+              const remove = new Set<string>()
               for (const id of selection) {
+                remove.add(id)
                 const gameObject = gameEngine.gameObjects.require(id)
                 const transform = gameObject.transform
                 const model = gameObject.getComponent<RenderModel>("model")
@@ -727,11 +729,15 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                   )
                 }
               }
-              removeSelected()
-              createObject("fused", {
-                transform: {localPosition: center},
-                fusedModels: {encoded: encoder.finish()},
-              })
+              const fusedId = getUnusedName("fused")
+              applyEdit({selection: new Set([fusedId]), remove, add: {
+                [fusedId]: {
+                  order: getNextPageOrder(),
+                  transform: {parentId: getPageParentId(), localPosition: center},
+                  fusedModels: {encoded: encoder.finish()},
+                  selector: {hideFlags: EDITOR_HIDE_FLAG},
+                },
+              }})
             },
           },
           explode: {
