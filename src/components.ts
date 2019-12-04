@@ -8,7 +8,7 @@ import {Mutable, Value} from "tfw/core/react"
 import {Noop, NoopRemover, PMap} from "tfw/core/util"
 import {DEFAULT_LAYER_FLAG, GameObject, Hover, Tile, Transform} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
-import {Camera, MeshRenderer, Model} from "tfw/engine/render"
+import {Camera, FusedModels, MeshRenderer, Model} from "tfw/engine/render"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
@@ -73,6 +73,8 @@ export class Selector extends TypeScriptComponent {
       } else {
         const model = gameObject.getComponent<Model>("model")
         if (model) Bounds.union(result, result, model.bounds)
+        const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
+        if (fusedModels) Bounds.union(result, result, fusedModels.bounds)
         const meshRenderer = gameObject.getComponent<MeshRenderer>("meshRenderer")
         if (meshRenderer) Bounds.union(result, result, meshRenderer.bounds)
       }

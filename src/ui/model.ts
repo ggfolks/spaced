@@ -1,14 +1,15 @@
 import {refEquals} from "tfw/core/data"
-import {Bounds, dim2, quat, vec2, vec3} from "tfw/core/math"
+import {Bounds, dim2, mat4, quat, vec2, vec3} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
   DEFAULT_PAGE, NO_HIDE_FLAGS_MASK, GameEngine, GameObject,
-  GameObjectConfig, PrimitiveTypes, SpaceConfig,
+  GameObjectConfig, PrimitiveTypes, SpaceConfig, Tile,
 } from "tfw/engine/game"
-import {JavaScript} from "tfw/engine/util"
+import {Model as RenderModel, FusedModels} from "tfw/engine/render"
+import {WALKABLE_FLAG, FusedEncoder, JavaScript, decodeFused} from "tfw/engine/util"
 import {MOUSE_ID} from "tfw/input/hand"
 import {getCurrentEditNumber} from "tfw/ui/element"
 import {
@@ -208,10 +209,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const createObject = (type :string, config :GameObjectConfig) => {
     const name = getUnusedName(type)
     const parentId = getPageParentId()
-    if (parentId !== undefined) config.transform = {parentId}
+    if (parentId !== undefined) {
+      if (!config.transform) config.transform = {}
+      config.transform.parentId = parentId
+    }
     config.order = getNextPageOrder()
     config.selector = {hideFlags: EDITOR_HIDE_FLAG}
     applyEdit({selection: new Set([name]), add: {[name]: config}})
+    return name
   }
   const addSubtreeToConfig = (config :SpaceConfig, rootId :string) => {
     if (config[rootId]) return
@@ -660,6 +665,97 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       view: {
         name: Value.constant("View"),
         model: dataModel(viewData),
+      },
+      selection: {
+        name: Value.constant("Selection"),
+        model: dataModel({
+          fuse: {
+            name: Value.constant("Fuse"),
+            enabled: haveSelection,
+            action: () => {
+              // get the combined bounds of all components
+              const firstId = selection.values().next().value
+              const firstObject = gameEngine.gameObjects.require(firstId)
+              const selector = firstObject.requireComponent<Selector>("selector")
+              const bounds = selector.getGroupBounds()
+
+              // use the bounds center as the fused model position
+              const center = Bounds.getCenter(vec3.create(), bounds)
+              center[1] = 0
+              const encoder = new FusedEncoder()
+              const tmpp = vec3.create()
+              const tmpr = quat.create()
+              const tmps = vec3.create()
+              const matrix = mat4.create()
+              for (const id of selection) {
+                const gameObject = gameEngine.gameObjects.require(id)
+                const transform = gameObject.transform
+                const model = gameObject.getComponent<RenderModel>("model")
+                if (model && model.url) {
+                  const tile = gameObject.getComponent<Tile>("tile")
+                  encoder.add(
+                    model.url,
+                    vec3.subtract(tmpp, transform.position, center),
+                    transform.rotation,
+                    transform.lossyScale,
+                    tile && tile.walkable ? WALKABLE_FLAG : 0,
+                  )
+                }
+                const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
+                if (fusedModels) {
+                  decodeFused(
+                    fusedModels.encoded,
+                    (url, position, rotation, scale, flags) => {
+                      mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
+                      mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
+                      mat4.getTranslation(tmpp, matrix)
+                      vec3.subtract(tmpp, tmpp, center)
+                      mat4.getRotation(tmpr, matrix)
+                      mat4.getScaling(tmps, matrix)
+                      encoder.add(url, tmpp, tmpr, tmps, flags)
+                    },
+                  )
+                }
+              }
+              removeSelected()
+              createObject("fused", {
+                transform: {localPosition: center},
+                fusedModels: {encoded: encoder.finish()},
+              })
+            },
+          },
+          explode: {
+            name: Value.constant("Explode"),
+            enabled: haveSelection,
+            action: () => {
+              const matrix = mat4.create()
+              const remove = new Set<string>()
+              const selection = new Set<string>()
+              for (const id of selection) {
+                addSubtreeToSet(remove, id)
+                const gameObject = gameEngine.gameObjects.require(id)
+                const transform = gameObject.transform
+                const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
+                if (fusedModels) {
+                  decodeFused(fusedModels.encoded, (url, position, rotation, scale, flags) => {
+                    mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
+                    mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
+                    selection.add(createObject("model", {
+                      transform: {
+                        localPosition: mat4.getTranslation(vec3.create(), matrix),
+                        localRotation: mat4.getRotation(quat.create(), matrix),
+                        localScale: mat4.getScaling(vec3.create(), matrix),
+                      },
+                      model: {url},
+                      tile: {walkable: Boolean(flags & WALKABLE_FLAG)},
+                    }))
+                  })
+                }
+              }
+              applyEdit({selection, remove})
+            },
+          },
+        }),
       },
       object: {
         name: Value.constant("Object"),
