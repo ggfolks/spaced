@@ -84,7 +84,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const canRedo = Mutable.local(false)
   const undoStack :FullGameObjectEdit[] = []
   const redoStack :FullGameObjectEdit[] = []
-  const automaticObjects = createAutomaticObjects(gameEngine)
   let currentVersion = 0
   const resetModel = () => {
     activeVersion.update(currentVersion)
@@ -94,9 +93,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     undoStack.length = 0
     redoStack.length = 0
     gameEngine.disposeGameObjects()
-    gameEngine.createGameObjects(automaticObjects)
+    gameEngine.createGameObjects(EditorObjects)
   }
-  resetModel()
+  const createNewSpace = () => {
+    path.update("")
+    resetModel()
+    gameEngine.createGameObjects(AutomaticObjects)
+  }
+  createNewSpace()
   const loadConfig = (config :SpaceConfig) => {
     resetModel()
     for (const id in config) config[id].selector = {hideFlags: EDITOR_HIDE_FLAG}
@@ -471,10 +475,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   }
 
   const menuActions = {
-    new: new Command(() => {
-      path.update("")
-      resetModel()
-    }),
+    new: new Command(createNewSpace),
     ...electronActions,
     undo: new Command(() => {
       const oldActivePage = gameEngine.activePage.current
@@ -705,26 +706,36 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                 const model = gameObject.getComponent<RenderModel>("model")
                 if (model) {
                   const tile = gameObject.getComponent<Tile>("tile")
+                  let flags = 0
+                  if (tile) {
+                    if (tile.walkable) flags |= WALKABLE_FLAG
+                    vec3.copy(bounds.min, tile.min)
+                    vec3.copy(bounds.max, tile.max)
+                  } else {
+                    Bounds.copy(bounds, model.bounds)
+                    Bounds.transformMat4(bounds, bounds, transform.worldToLocalMatrix)
+                  }
                   encoder.add(
                     model.url,
+                    bounds,
                     vec3.subtract(tmpp, transform.position, center),
                     transform.rotation,
                     transform.lossyScale,
-                    tile && tile.walkable ? WALKABLE_FLAG : 0,
+                    flags,
                   )
                 }
                 const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
                 if (fusedModels) {
                   decodeFused(
                     fusedModels.encoded,
-                    (url, position, rotation, scale, flags) => {
+                    (url, bounds, position, rotation, scale, flags) => {
                       mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
                       mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
                       mat4.getTranslation(tmpp, matrix)
                       vec3.subtract(tmpp, tmpp, center)
                       mat4.getRotation(tmpr, matrix)
                       mat4.getScaling(tmps, matrix)
-                      encoder.add(url, tmpp, tmpr, tmps, flags)
+                      encoder.add(url, bounds, tmpp, tmpr, tmps, flags)
                     },
                   )
                 }
@@ -757,24 +768,31 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                 const transform = gameObject.transform
                 const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
                 if (fusedModels) {
-                  decodeFused(fusedModels.encoded, (url, position, rotation, scale, flags) => {
-                    mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
-                    mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
-                    const modelId = getUnusedName("model", add)
-                    newSelection.add(modelId)
-                    add[modelId] = {
-                      order: order++,
-                      transform: {
-                        parentId,
-                        localPosition: mat4.getTranslation(vec3.create(), matrix),
-                        localRotation: mat4.getRotation(quat.create(), matrix),
-                        localScale: mat4.getScaling(vec3.create(), matrix),
-                      },
-                      model: {url},
-                      tile: {walkable: Boolean(flags & WALKABLE_FLAG)},
-                      selector: {hideFlags: EDITOR_HIDE_FLAG},
-                    }
-                  })
+                  decodeFused(
+                    fusedModels.encoded,
+                    (url, bounds, position, rotation, scale, flags) => {
+                      mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
+                      mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
+                      const modelId = getUnusedName("tile", add)
+                      newSelection.add(modelId)
+                      add[modelId] = {
+                        order: order++,
+                        transform: {
+                          parentId,
+                          localPosition: mat4.getTranslation(vec3.create(), matrix),
+                          localRotation: mat4.getRotation(quat.create(), matrix),
+                          localScale: mat4.getScaling(vec3.create(), matrix),
+                        },
+                        model: {url},
+                        tile: {
+                          min: vec3.clone(bounds.min),
+                          max: vec3.clone(bounds.max),
+                          walkable: Boolean(flags & WALKABLE_FLAG),
+                        },
+                        selector: {hideFlags: EDITOR_HIDE_FLAG},
+                      }
+                    },
+                  )
                 }
               }
               applyEdit({selection: newSelection, add, remove})
@@ -800,6 +818,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           model: {
             name: Value.constant("Model"),
             action: () => createObject("model", {model: {}}),
+          },
+          tile: {
+            name: Value.constant("Tile"),
+            action: () => createObject("tile", {model: {}, tile: {}}),
           },
           primitive: {
             name: Value.constant("Primitive"),
@@ -871,20 +893,20 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         }
       }
       const pages = gameEngine.pages.current
-      const pageAutomaticObjects :SpaceConfig = {}
-      for (const key in automaticObjects) {
-        const objectConfig = JavaScript.clone(automaticObjects[key])
-        if (!objectConfig.transform) objectConfig.transform = {}
-        objectConfig.transform.parentId = name
-        pageAutomaticObjects[getUnusedName(key, pageAutomaticObjects)] = objectConfig
+      const add :SpaceConfig = {
+        [name]: {order: getOrder(pages[pages.length - 1]) + 1, page: {}},
       }
-      applyEdit({
-        activePage: name,
-        add: {
-          [name]: {order: getOrder(pages[pages.length - 1]) + 1, page: {}},
-          ...pageAutomaticObjects,
-        },
-      })
+      const addPageObjects = (space :SpaceConfig) => {
+        for (const key in space) {
+          const objectConfig = JavaScript.clone(space[key])
+          if (!objectConfig.transform) objectConfig.transform = {}
+          objectConfig.transform.parentId = name
+          add[getUnusedName(key, add)] = objectConfig
+        }
+      }
+      addPageObjects(EditorObjects)
+      addPageObjects(AutomaticObjects)
+      applyEdit({activePage: name, add})
     },
     updateOrder: (key :string, index :number) => {
       const currentPageKeys = gameEngine.pages.current
@@ -1010,48 +1032,49 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   })
 }
 
-function createAutomaticObjects (gameEngine :GameEngine) :SpaceConfig {
-  return {
-    editorCamera: {
-      layerFlags: CAMERA_LAYER_FLAG,
-      hideFlags: EDITOR_HIDE_FLAG,
-      transform: {
-        localPosition: vec3.fromValues(0, 5, 5),
-        localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
-      },
-      camera: {},
-      cameraController: {},
+const EditorObjects :SpaceConfig = {
+  editorCamera: {
+    layerFlags: CAMERA_LAYER_FLAG,
+    hideFlags: EDITOR_HIDE_FLAG,
+    transform: {
+      localPosition: vec3.fromValues(0, 5, 5),
+      localRotation: quat.fromEuler(quat.create(), -45, 0, 0),
     },
-    editorGrid: {
-      order: 1,
-      layerFlags: NONINTERACTIVE_LAYER_FLAG,
-      hideFlags: EDITOR_HIDE_FLAG,
-      transform: {
-        localRotation: quat.fromEuler(quat.create(), -90, 0, 0),
-        localScale: vec3.fromValues(1000, 1000, 1000),
-      },
-      meshFilter: {
-        meshConfig: {type: "quad"},
-      },
-      meshRenderer: {
-        materialConfig: {
-          type: "shader",
-          side: "both",
-          vertexShaderGraphConfig: {},
-          fragmentShaderGraphConfig: {},
-        },
+    camera: {},
+    cameraController: {},
+  },
+  editorGrid: {
+    order: 1,
+    layerFlags: NONINTERACTIVE_LAYER_FLAG,
+    hideFlags: EDITOR_HIDE_FLAG,
+    transform: {
+      localRotation: quat.fromEuler(quat.create(), -90, 0, 0),
+      localScale: vec3.fromValues(1000, 1000, 1000),
+    },
+    meshFilter: {
+      meshConfig: {type: "quad"},
+    },
+    meshRenderer: {
+      materialConfig: {
+        type: "shader",
+        side: "both",
+        vertexShaderGraphConfig: {},
+        fragmentShaderGraphConfig: {},
       },
     },
-    ambient: {
-      order: 2,
-      light: {},
-    },
-    directional: {
-      order: 3,
-      light: {lightType: "directional"},
-      transform: {localPosition: vec3.fromValues(1, 1, 1)},
-    },
-  }
+  },
+}
+
+const AutomaticObjects :SpaceConfig = {
+  ambient: {
+    order: 2,
+    light: {},
+  },
+  directional: {
+    order: 3,
+    light: {lightType: "directional"},
+    transform: {localPosition: vec3.fromValues(1, 1, 1)},
+  },
 }
 
 function getNewOrder (keys :string[], index :number, getOrder :(key :string) => number) :number {
