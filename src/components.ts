@@ -277,10 +277,16 @@ export class Selector extends TypeScriptComponent {
   }
 
   private _applyToGroupIds (op :(id :string) => void) {
+    const applyToSubtree = (id :string) => {
+      op(id)
+      for (const childId of this.gameEngine.gameObjects.require(id).transform.childIds.current) {
+        applyToSubtree(childId)
+      }
+    }
     if (selection.has(this.gameObject.id)) {
-      for (const id of selection) op(id)
+      for (const id of selection) applyToSubtree(id)
     } else {
-      op(this.gameObject.id)
+      applyToSubtree(this.gameObject.id)
     }
   }
 }

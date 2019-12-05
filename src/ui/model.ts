@@ -690,6 +690,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
               const selector = firstObject.requireComponent<Selector>("selector")
               const bounds = selector.getGroupBounds()
 
+              // merge the selection and all children
+              const remove = new Set<string>()
+              for (const id of selection) addSubtreeToSet(remove, id)
+
               // use the bounds center as the fused model position
               const center = Bounds.getCenter(vec3.create(), bounds)
               center[1] = 0
@@ -698,9 +702,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
               const tmpr = quat.create()
               const tmps = vec3.create()
               const matrix = mat4.create()
-              const remove = new Set<string>()
-              for (const id of selection) {
-                remove.add(id)
+              for (const id of remove) {
                 const gameObject = gameEngine.gameObjects.require(id)
                 const transform = gameObject.transform
                 const model = gameObject.getComponent<RenderModel>("model")
