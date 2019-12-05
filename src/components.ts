@@ -1,5 +1,6 @@
 import {
-  Mesh, Object3D, PlaneBufferGeometry, Scene, ShaderMaterial, Vector2, WebGLRenderTarget,
+  Mesh, MeshBasicMaterial, Object3D, PlaneBufferGeometry,
+  Scene, ShaderMaterial, Vector2, WebGLRenderTarget,
 } from "three"
 
 import {Color} from "tfw/core/color"
@@ -31,6 +32,9 @@ let postMaterial :ShaderMaterial|undefined
 // get these before we need them so that the Keyboard instance is created and listening
 const controlKeyState = Keyboard.instance.getKeyState(17)
 const shiftKeyState = Keyboard.instance.getKeyState(16)
+
+const DummyMaterial = new MeshBasicMaterial()
+const EmptyGroup = {start: 0, count: 0}
 
 export class Selector extends TypeScriptComponent {
   readonly groupHovered = Mutable.local(false)
@@ -172,6 +176,11 @@ export class Selector extends TypeScriptComponent {
       node.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
         previousOpacity = material.opacity
         material.opacity = selected ? 0.8 : 0.4
+
+        // as a hack, we "render" an empty group with a different material to force Three.js to
+        // update the opacity even if we were previously using the same material
+        // @ts-ignore fog parameter can be null
+        renderer.renderBufferDirect(camera, null, geometry, DummyMaterial, node, EmptyGroup)
       }
       node.onAfterRender = (renderer, scene, camera, geometry, material, group) => {
         material.opacity = previousOpacity
