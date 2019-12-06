@@ -113,6 +113,12 @@ export function createUIConfig (minSize :Value<dim2>) :Root.Config {
 
       KeyZ: {[CtrlMask]: "undo", [CtrlMask|ShiftMask]: "redo"},
       KeyY: {[CtrlMask]: "redo"},
+
+      PageUp: {0: "raiseGrid"},
+      Numpad9: {0: "raiseGrid"},
+
+      PageDown: {0: "lowerGrid"},
+      Numpad3: {0: "lowerGrid"},
     },
     contents: {
       type: "column",

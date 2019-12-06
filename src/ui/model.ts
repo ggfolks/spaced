@@ -216,12 +216,28 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const rootIds = gameEngine.rootIds.current
     return (rootIds.length === 0) ? 0 : getOrder(rootIds[rootIds.length - 1]) + 1
   }
+  const getPointerWorldPosition = (center :boolean = false) => {
+    const position = vec3.create()
+    const camera = gameEngine.renderEngine.activeCameras[0]
+    if (camera) {
+      const cameraController = camera.getComponent<CameraController>("cameraController")
+      if (cameraController) {
+        const pointer = gameEngine.ctx.hand!.pointers.get(MOUSE_ID)
+        const ray = pointer && !center
+          ? camera.screenPointToRay(pointer.position)
+          : camera.viewportPointToRay(vec2.fromValues(0.5, 0.5))
+        cameraController.getRayXZPlaneIntersection(ray, position)
+      }
+    }
+    return position
+  }
   const createObject = (type :string, config :GameObjectConfig) => {
     const name = getUnusedName(type)
     const parentId = getPageParentId()
-    if (parentId !== undefined) {
-      if (!config.transform) config.transform = {}
-      config.transform.parentId = parentId
+    if (!config.transform) config.transform = {}
+    config.transform.parentId = parentId
+    if (!config.transform.localPosition) {
+      config.transform.localPosition = getPointerWorldPosition(true)
     }
     config.order = getNextPageOrder()
     config.selector = {hideFlags: EDITOR_HIDE_FLAG}
@@ -299,18 +315,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const selection = new Set<string>()
     const pageParentId = getPageParentId()
     let nextPageOrder = getNextPageOrder()
-    const newCenter = vec3.create()
-    const camera = gameEngine.renderEngine.activeCameras[0]
-    if (camera) {
-      const cameraController = camera.getComponent<CameraController>("cameraController")
-      if (cameraController) {
-        const pointer = gameEngine.ctx.hand!.pointers.get(MOUSE_ID)
-        const ray = pointer
-          ? camera.screenPointToRay(pointer.position)
-          : camera.viewportPointToRay(vec2.fromValues(0.5, 0.5))
-        cameraController.getRayXZPlaneIntersection(ray, newCenter)
-      }
-    }
+    const newCenter = getPointerWorldPosition()
     maybeGetSnapCenter(newCenter, clipboardBounds)
     for (const id in configs) {
       const newId = newIds.get(id)!
@@ -525,6 +530,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       for (const rootId of gameEngine.rootIds.current) addSubtreeToSet(set, rootId)
       setIdSet(selection, set)
     },
+    raiseGrid: () => {
+      const activeCamera = gameEngine.renderEngine.activeCameras[0]
+      if (activeCamera) activeCamera.gameObject.cameraController.raise(1)
+    },
+    lowerGrid: () => {
+      const activeCamera = gameEngine.renderEngine.activeCameras[0]
+      if (activeCamera) activeCamera.gameObject.cameraController.raise(-1)
+    },
   }
 
   const viewNames :PMap<string> = {
@@ -532,6 +545,16 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     showStats: "Stats",
   }
   const viewData :ModelData = {
+    raiseGrid: {
+      name: Value.constant("Raise Grid"),
+      action: menuActions.raiseGrid,
+      shortcut: Value.constant("raiseGrid"),
+    },
+    lowerGrid: {
+      name: Value.constant("Lower Grid"),
+      action: menuActions.lowerGrid,
+      shortcut: Value.constant("lowerGrid"),
+    },
     resetCamera: {
       name: Value.constant("Reset Camera"),
       action: () => {
@@ -1046,6 +1069,7 @@ const EditorObjects :SpaceConfig = {
     cameraController: {},
   },
   editorGrid: {
+    tag: "editorGrid",
     order: 1,
     layerFlags: NONINTERACTIVE_LAYER_FLAG,
     hideFlags: EDITOR_HIDE_FLAG,

@@ -324,8 +324,7 @@ const tmpq = quat.create()
 const tmpr = Ray.create()
 const tmpv = vec3.create()
 const tmpb = Bounds.create()
-
-const xzPlane = Plane.fromValues(0, 1, 0, 0)
+const tmpp = Plane.create()
 
 const transforms :Transform[] = []
 let selectors = new Set<Selector>()
@@ -333,6 +332,9 @@ let lastSelectors = new Set<Selector>()
 
 // a scale that's very small, but nonzero (to avoid noninvertible matrices)
 const SMALL_SCALE = 0.000001
+
+// we lower the grid slightly to avoid z-fighting with flat tiles
+const GRID_OFFSET = 0.001
 
 const leftKeyState = Keyboard.instance.getKeyState(37)
 const upKeyState = Keyboard.instance.getKeyState(38)
@@ -356,7 +358,8 @@ export class CameraController extends TypeScriptComponent {
   }
 
   getRayXZPlaneIntersection (ray :Ray, result :vec3) :boolean {
-    const distance = Plane.intersectRay(xzPlane, ray.origin, ray.direction)
+    Plane.set(tmpp, 0, 1, 0, -this.target[1])
+    const distance = Plane.intersectRay(tmpp, ray.origin, ray.direction)
     if (!(distance > 0)) return false // could be NaN
     Ray.getPoint(result, ray, distance)
     return true
@@ -368,6 +371,10 @@ export class CameraController extends TypeScriptComponent {
     this.azimuth = 0
     this.elevation = -45
     this.distance = 10
+  }
+
+  raise (amount :number) {
+    this.target[1] += amount
   }
 
   awake () {
@@ -386,6 +393,9 @@ export class CameraController extends TypeScriptComponent {
           quat.fromEuler(this.transform.rotation, elevation, azimuth, 0)
           vec3.transformQuat(offset, vec3.set(offset, 0, 0, distance), this.transform.rotation)
           vec3.add(this.transform.position, target, offset)
+
+          const gridObject = this.gameEngine.findWithTag("editorGrid")
+          if (gridObject) gridObject.transform.position[1] = target[1] - GRID_OFFSET
         }),
     )
     this._disposer.add(
@@ -498,7 +508,6 @@ export class CameraController extends TypeScriptComponent {
       Number(downKeyState.current) - Number(upKeyState.current),
     )
     vec3.rotateY(tmpv, tmpv, vec3zero, toRadian(this.azimuth))
-    tmpv[1] = 0
     vec3.scaleAndAdd(this.target, this.target, tmpv, clock.dt * 10)
   }
 
