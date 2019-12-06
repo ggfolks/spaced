@@ -50,18 +50,35 @@ const TabbedPaneConfig = {
   },
   contentElement: {
     type: "box",
-    scopeId: "stats",
     tags: new Set(["canvas"]),
     constraints: {stretch: true},
     contents: {
-      type: "vlist",
-      gap: 5,
-      visible: "showStats",
-      offPolicy: "stretch",
-      model: "statsModel",
-      element: {type: "label", text: "stat"},
+      type: "absLayout",
+      contents: [
+        {
+          type: "box",
+          scopeId: "stats",
+          constraints: {stretchX: true, stretchY: true},
+          contents: {
+            type: "vlist",
+            gap: 5,
+            visible: "showStats",
+            offPolicy: "stretch",
+            model: "statsModel",
+            element: {type: "label", text: "stat"},
+          },
+          style: {halign: "left", valign: "top"},
+        },
+        {
+          type: "box",
+          scopeId: "stats",
+          constraints: {stretchX: true, stretchY: true},
+          contents: {type: "label", visible: "showCoords", text: "coords"},
+          style: {halign: "right", valign: "bottom"},
+        },
+      ],
     },
-    style: {halign: "left", valign: "top"},
+    style: {halign: "stretch", valign: "stretch"},
   },
   addTabElement: {
     type: "button",

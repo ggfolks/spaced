@@ -32,6 +32,7 @@ class GeneralPrefs extends PrefsCategory {
   @property("directory") rootDirectory = ""
   @property("boolean", {editable: false}) showStats = false
   @property("boolean", {editable: false}) showEditorObjects = false
+  @property("boolean", {editable: false}) showCoords = true
 
   get normalizedRoot () :string {
     if (!this.rootDirectory) return ""

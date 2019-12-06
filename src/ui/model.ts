@@ -168,6 +168,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const prefs = new Preferences(gameEngine)
   const showEditorObjects = prefs.general.getProperty("showEditorObjects") as Mutable<boolean>
   const showStats = prefs.general.getProperty("showStats") as Mutable<boolean>
+  const showCoords = prefs.general.getProperty("showCoords") as Mutable<boolean>
   function gameObjectModel (keys :Value<string[]>) :ElementsModel<string> {
     return {
       keys: Value.join2(keys, showEditorObjects).map(([keys, showEditorObjects]) => {
@@ -216,8 +217,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const rootIds = gameEngine.rootIds.current
     return (rootIds.length === 0) ? 0 : getOrder(rootIds[rootIds.length - 1]) + 1
   }
-  const getPointerWorldPosition = (center :boolean = false) => {
-    const position = vec3.create()
+  const vec2half = vec2.fromValues(0.5, 0.5)
+  const getPointerWorldPosition = (out :vec3, center :boolean = false) => {
+    // @ts-ignore zero missing from type def
+    vec3.zero(out)
     const camera = gameEngine.renderEngine.activeCameras[0]
     if (camera) {
       const cameraController = camera.getComponent<CameraController>("cameraController")
@@ -225,11 +228,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         const pointer = gameEngine.ctx.hand!.pointers.get(MOUSE_ID)
         const ray = pointer && !center
           ? camera.screenPointToRay(pointer.position)
-          : camera.viewportPointToRay(vec2.fromValues(0.5, 0.5))
-        cameraController.getRayXZPlaneIntersection(ray, position)
+          : camera.viewportPointToRay(vec2half)
+        cameraController.getRayXZPlaneIntersection(ray, out)
       }
     }
-    return position
+    return out
   }
   const createObject = (type :string, config :GameObjectConfig) => {
     const name = getUnusedName(type)
@@ -237,7 +240,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     if (!config.transform) config.transform = {}
     config.transform.parentId = parentId
     if (!config.transform.localPosition) {
-      config.transform.localPosition = getPointerWorldPosition(true)
+      config.transform.localPosition = getPointerWorldPosition(vec3.create(), true)
     }
     config.order = getNextPageOrder()
     config.selector = {hideFlags: EDITOR_HIDE_FLAG}
@@ -315,7 +318,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const selection = new Set<string>()
     const pageParentId = getPageParentId()
     let nextPageOrder = getNextPageOrder()
-    const newCenter = getPointerWorldPosition()
+    const newCenter = getPointerWorldPosition(vec3.create())
     maybeGetSnapCenter(newCenter, clipboardBounds)
     for (const id in configs) {
       const newId = newIds.get(id)!
@@ -356,6 +359,15 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     gameEngine.renderEngine.stats,
     stat => ({stat: Value.constant(stat)}),
   )
+  const coords = Mutable.local("")
+  const coordPos = vec3.create()
+  gameEngine.addUpdatable({
+    update: () => {
+      getPointerWorldPosition(coordPos)
+      vec3.round(coordPos, coordPos)
+      coords.update(`${coordPos[0]} ${coordPos[1]} ${coordPos[2]}`)
+    },
+  })
 
   let electronActions :PMap<Command> = {}
   let openModel :ModelData = {}
@@ -543,6 +555,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const viewNames :PMap<string> = {
     showEditorObjects: "Editor Objects",
     showStats: "Stats",
+    showCoords: "Coords",
   }
   const viewData :ModelData = {
     raiseGrid: {
@@ -877,14 +890,19 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       resolve: (key :ModelKey) => {
         let model = models.get(key)
         if (!model) {
+          const commonModelData :ModelData = {
+            showStats,
+            statsModel,
+            showCoords,
+            coords,
+          }
           if (key === DEFAULT_PAGE) {
             models.set(key, model = new Model({
               id: Value.constant(DEFAULT_PAGE),
               name: Value.constant(DEFAULT_PAGE),
               removable: Value.constant(false),
               remove: Noop,
-              showStats,
-              statsModel,
+              ...commonModelData,
             }))
           } else {
             const gameObject = gameEngine.gameObjects.require(key as string)
@@ -898,8 +916,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                 addSubtreeToSet(remove, key as string)
                 applyEdit({remove})
               },
-              showStats,
-              statsModel,
+              ...commonModelData,
             }))
           }
         }
