@@ -3,8 +3,11 @@ import {
   Scene, ShaderMaterial, Vector2, WebGLRenderTarget,
 } from "three"
 
+import {Clock} from "tfw/core/clock"
 import {Color} from "tfw/core/color"
-import {Bounds, Plane, Ray, clamp, quat, toDegree, vec3, vec3unitZ} from "tfw/core/math"
+import {
+  Bounds, Plane, Ray, clamp, quat, toDegree, toRadian, vec3, vec3zero, vec3unitZ,
+} from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {Noop, NoopRemover, PMap} from "tfw/core/util"
 import {DEFAULT_LAYER_FLAG, GameObject, Hover, Tile, Transform} from "tfw/engine/game"
@@ -331,6 +334,11 @@ let lastSelectors = new Set<Selector>()
 // a scale that's very small, but nonzero (to avoid noninvertible matrices)
 const SMALL_SCALE = 0.000001
 
+const leftKeyState = Keyboard.instance.getKeyState(37)
+const upKeyState = Keyboard.instance.getKeyState(38)
+const rightKeyState = Keyboard.instance.getKeyState(39)
+const downKeyState = Keyboard.instance.getKeyState(40)
+
 export class CameraController extends TypeScriptComponent {
   @property("vec3") target = vec3.create()
   @property("number") azimuth = 0
@@ -480,6 +488,18 @@ export class CameraController extends TypeScriptComponent {
 
   onWheel (identifier :number, hover :Hover, delta :vec3) {
     this._addToDistance(0.5 * Math.sign(delta[1]))
+  }
+
+  update (clock :Clock) {
+    vec3.set(
+      tmpv,
+      Number(rightKeyState.current) - Number(leftKeyState.current),
+      0,
+      Number(downKeyState.current) - Number(upKeyState.current),
+    )
+    vec3.rotateY(tmpv, tmpv, vec3zero, toRadian(this.azimuth))
+    tmpv[1] = 0
+    vec3.scaleAndAdd(this.target, this.target, tmpv, clock.dt * 10)
   }
 
   private _addToDistance (amount :number) {
