@@ -201,7 +201,8 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const NUMERIC_SUFFIX = /\d+$/
   const getUnusedName = (base :string, adding? :SpaceConfig) => {
     // strip off any existing numeric suffix
-    let name = base.replace(NUMERIC_SUFFIX, "")
+    base = base.replace(NUMERIC_SUFFIX, "")
+    let name = base
     for (
       let ii = 2;
       gameEngine.gameObjects.has(name) || (adding && adding[name]);
