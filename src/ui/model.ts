@@ -735,9 +735,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
               center[1] = 0
               const encoder = new FusedEncoder()
               const tmpp = vec3.create()
-              const tmpr = quat.create()
-              const tmps = vec3.create()
-              const matrix = mat4.create()
               for (const id of remove) {
                 const gameObject = gameEngine.gameObjects.require(id)
                 const transform = gameObject.transform
@@ -753,7 +750,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                     Bounds.copy(bounds, model.bounds)
                     Bounds.transformMat4(bounds, bounds, transform.worldToLocalMatrix)
                   }
-                  encoder.add(
+                  encoder.addTile(
                     model.url,
                     bounds,
                     vec3.subtract(tmpp, transform.position, center),
@@ -764,17 +761,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                 }
                 const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
                 if (fusedModels) {
-                  decodeFused(
+                  encoder.addFusedTiles(
                     fusedModels.encoded,
-                    (url, bounds, position, rotation, scale, flags) => {
-                      mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
-                      mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
-                      mat4.getTranslation(tmpp, matrix)
-                      vec3.subtract(tmpp, tmpp, center)
-                      mat4.getRotation(tmpr, matrix)
-                      mat4.getScaling(tmps, matrix)
-                      encoder.add(url, bounds, tmpp, tmpr, tmps, flags)
-                    },
+                    vec3.subtract(tmpp, transform.position, center),
+                    transform.rotation,
+                    transform.lossyScale,
                   )
                 }
               }
@@ -806,9 +797,8 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                 const transform = gameObject.transform
                 const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
                 if (fusedModels) {
-                  decodeFused(
-                    fusedModels.encoded,
-                    (url, bounds, position, rotation, scale, flags) => {
+                  decodeFused(fusedModels.encoded, {
+                    visitTile: (url, bounds, position, rotation, scale, flags) => {
                       mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
                       mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
                       const modelId = getUnusedName("tile", add)
@@ -830,7 +820,24 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                         selector: {hideFlags: EDITOR_HIDE_FLAG},
                       }
                     },
-                  )
+                    visitFusedTiles: (source, position, rotation, scale) => {
+                      mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
+                      mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
+                      const fusedId = getUnusedName("fused", add)
+                      newSelection.add(fusedId)
+                      add[fusedId] = {
+                        order: order++,
+                        transform: {
+                          parentId,
+                          localPosition: mat4.getTranslation(vec3.create(), matrix),
+                          localRotation: mat4.getRotation(quat.create(), matrix),
+                          localScale: mat4.getScaling(vec3.create(), matrix),
+                        },
+                        fusedModels: {encoded: source},
+                        selector: {hideFlags: EDITOR_HIDE_FLAG},
+                      }
+                    },
+                  })
                 }
               }
               applyEdit({selection: newSelection, add, remove})
