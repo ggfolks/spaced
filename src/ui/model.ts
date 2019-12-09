@@ -863,7 +863,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           },
           model: {
             name: Value.constant("Model"),
-            action: () => createObject("model", {model: {}}),
+            action: () => createObject("model", {model: {}, animation: {}}),
           },
           tile: {
             name: Value.constant("Tile"),
