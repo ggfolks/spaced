@@ -334,7 +334,7 @@ let lastSelectors = new Set<Selector>()
 const SMALL_SCALE = 0.000001
 
 // we lower the grid slightly to avoid z-fighting with flat tiles
-const GRID_OFFSET = 0.001
+const GRID_OFFSET = 0.01
 
 const leftKeyState = Keyboard.instance.getKeyState(37)
 const upKeyState = Keyboard.instance.getKeyState(38)

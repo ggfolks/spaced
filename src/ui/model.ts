@@ -101,10 +101,13 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     gameEngine.createGameObjects(AutomaticObjects)
   }
   createNewSpace()
+  const addSelectors = (config: SpaceConfig) => {
+    for (const id in config) config[id].selector = {hideFlags: EDITOR_HIDE_FLAG}
+    return config
+  }
   const loadConfig = (config :SpaceConfig) => {
     resetModel()
-    for (const id in config) config[id].selector = {hideFlags: EDITOR_HIDE_FLAG}
-    gameEngine.createGameObjects(config, true)
+    gameEngine.createGameObjects(addSelectors(config), true)
   }
   gameEngine.activePage.onChange(() => selection.clear())
   applyEdit = (edit :GameObjectEdit) => {
@@ -286,11 +289,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     for (const id of selection) addSubtreeToSet(remove, id)
     applyEdit({selection: new Set(), remove})
   }
-  const pasteFromClipboard = () => {
+  const pasteConfig = (config :SpaceConfig, bounds? :Bounds, offsets? :Map<string, vec3>) => {
     const add :SpaceConfig = {}
-    const configs = clipboard.current
     const newIds = new Map<string, string>()
-    for (const id in configs) {
+    for (const id in config) {
       const newId = getUnusedName(id, add)
       newIds.set(id, newId)
       add[newId] = {}
@@ -320,20 +322,25 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const pageParentId = getPageParentId()
     let nextPageOrder = getNextPageOrder()
     const newCenter = getPointerWorldPosition(vec3.create())
-    maybeGetSnapCenter(newCenter, clipboardBounds)
-    for (const id in configs) {
+    if (bounds) maybeGetSnapCenter(newCenter, bounds)
+    for (const id in config) {
       const newId = newIds.get(id)!
       selection.add(newId)
-      const newConfig = replaceIds(configs[id])
+      const newConfig = replaceIds(config[id])
       if (!(newConfig.transform && newConfig.transform.parentId)) {
         if (!newConfig.transform) newConfig.transform = {}
-        newConfig.transform.position = vec3.add(vec3.create(), newCenter, clipboardOffsets.get(id)!)
+        if (offsets) {
+          newConfig.transform.position = vec3.add(vec3.create(), newCenter, offsets.get(id)!)
+        }
         newConfig.transform.parentId = pageParentId
         newConfig.order = nextPageOrder++
       }
       add[newId] = newConfig
     }
     applyEdit({selection, add})
+  }
+  const pasteFromClipboard = () => {
+    pasteConfig(clipboard.current!, clipboardBounds, clipboardOffsets)
   }
   function getCategoryModel (category :CategoryNode) :ElementsModel<string> {
     return mapModel(category.children.keysValue, category.children, (value, key) => {
@@ -378,21 +385,71 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     {name: "Spaces", extensions: ["space.js"]},
     {name: "All Files", extensions: ["*"]},
   ]
-  let saveTo :(path :string) => void = Noop
-  const createSpaceConfigString = () => JavaScript.stringify(gameEngine.createConfig())
-  let loadFrom :(path :string) => void = Noop
+  let writeTo :(config :SpaceConfig, path :string) => void = Noop
+  const saveTo = (path :string) => writeTo(gameEngine.createConfig(), path)
+  let readFrom :(path :string, onLoad :(config :SpaceConfig) => void) => void = Noop
+  const loadFrom = (path :string) => readFrom(path, loadConfig)
+  let importConfig = (onLoad :(config :SpaceConfig) => void) => {
+    const input = document.createElement("input")
+    input.setAttribute("type", "file")
+    input.setAttribute("accept", "application/javascript")
+    input.addEventListener("change", event => {
+      if (!input.files || input.files.length === 0) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        onLoad(JavaScript.parse(reader.result as string) as SpaceConfig)
+      }
+      reader.readAsText(input.files[0])
+    })
+    input.click()
+  }
+  let exportConfig = (config :SpaceConfig) => {
+    const file = new File(
+      [JavaScript.stringify(config)],
+      "untitled.space.js",
+      {type: "application/octet-stream"},
+    )
+    open(URL.createObjectURL(file), "_self")
+    // TODO: call revokeObjectURL when finished with download
+  }
   if (window.require) {
     const fs = window.require("fs")
-    saveTo = path => {
-      fs.writeFile(path, createSpaceConfigString(), (error? :Error) => {
+    writeTo = (config, path) => {
+      fs.writeFile(path, JavaScript.stringify(config), (error? :Error) => {
         if (error) console.warn(error)
       })
     }
-    loadFrom = path => {
+    readFrom = (path, onLoad) => {
       fs.readFile(path, "utf8", (error :Error|undefined, data :string) => {
         if (error) console.warn(error)
-        else loadConfig(JavaScript.parse(data))
+        else onLoad(JavaScript.parse(data) as SpaceConfig)
       })
+    }
+    importConfig = async onLoad => {
+      const result = await electron.dialog.showOpenDialog(
+        electron.getCurrentWindow(),
+        {
+          title: "Import",
+          defaultPath: path.current,
+          buttonLabel: "Import",
+          properties: ["openFile"],
+          filters,
+        },
+      )
+      if (result.filePaths.length > 0) readFrom(result.filePaths[0], onLoad)
+    }
+    exportConfig = async config => {
+      const result = await electron.dialog.showSaveDialog(
+        electron.getCurrentWindow(),
+        {
+          title: "Export",
+          defaultPath: path.current,
+          buttonLabel: "Export",
+          properties: ["openFile", "promptToCreate"],
+          filters,
+        },
+      )
+      if (result.filePath) writeTo(config, result.filePath)
     }
     const save = () => {
       saveTo(path.current)
@@ -603,56 +660,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           ...saveModel,
           import: {
             name: Value.constant("Import..."),
-            action: electron ? async () => {
-              const result = await electron.dialog.showOpenDialog(
-                electron.getCurrentWindow(),
-                {
-                  title: "Import",
-                  defaultPath: path.current,
-                  buttonLabel: "Import",
-                  properties: ["openFile"],
-                  filters,
-                },
-              )
-              if (result.filePaths.length > 0) loadFrom(result.filePaths[0])
-            } : () => {
-              const input = document.createElement("input")
-              input.setAttribute("type", "file")
-              input.setAttribute("accept", "application/javascript")
-              input.addEventListener("change", event => {
-                if (!input.files || input.files.length === 0) return
-                const reader = new FileReader()
-                reader.onload = () => {
-                  loadConfig(JavaScript.parse(reader.result as string))
-                }
-                reader.readAsText(input.files[0])
-              })
-              input.click()
-            },
+            action: () => importConfig(loadConfig),
           },
           export: {
             name: Value.constant("Export..."),
-            action: electron ? async () => {
-              const result = await electron.dialog.showSaveDialog(
-                electron.getCurrentWindow(),
-                {
-                  title: "Export",
-                  defaultPath: path.current,
-                  buttonLabel: "Export",
-                  properties: ["openFile", "promptToCreate"],
-                  filters,
-                },
-              )
-              if (result.filePath) saveTo(result.filePath)
-            } : () => {
-              const file = new File(
-                [createSpaceConfigString()],
-                "untitled.space.js",
-                {type: "application/octet-stream"},
-              )
-              open(URL.createObjectURL(file), "_self")
-              // TODO: call revokeObjectURL when finished with download
-            },
+            action: () => exportConfig(gameEngine.createConfig()),
           },
           ...quitModel,
         }),
@@ -844,6 +856,22 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
               applyEdit({selection: newSelection, add, remove})
             },
           },
+          separator: {},
+          importAsSelection: {
+            name: Value.constant("Import as Selection..."),
+            action: () => importConfig(config => pasteConfig(addSelectors(config))),
+          },
+          exportSelection: {
+            name: Value.constant("Export Selection..."),
+            enabled: haveSelection,
+            action: () => {
+              const config :SpaceConfig = {}
+              for (const id of selection) {
+                config[id] = gameEngine.gameObjects.require(id).createConfig()
+              }
+              exportConfig(config)
+            },
+          }
         }),
       },
       object: {
