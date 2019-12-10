@@ -52,17 +52,23 @@ class GeneralPrefs extends PrefsCategory {
       }
       const normalizedRoot = this.normalizedRoot
       setBaseUrl("file:" + normalizedRoot)
+      let lastPath = ""
       Property.setCustomUrlSelector(async value => {
         const currentPath = value.current
         const result = await electron.dialog.showOpenDialog(
           electron.getCurrentWindow(),
           {
-            defaultPath: currentPath.startsWith("/") ? currentPath : normalizedRoot + currentPath,
+            defaultPath: currentPath
+              ? (currentPath.startsWith("/") ? currentPath : normalizedRoot + currentPath)
+              : lastPath
+              ? lastPath
+              : normalizedRoot,
             properties: ["openFile"],
           },
         )
         if (result.filePaths.length > 0) {
           const absPath = toForwardSlashes(result.filePaths[0])
+          lastPath = absPath.substring(0, absPath.lastIndexOf("/") + 1)
           value.update(
             absPath.startsWith(normalizedRoot)
               ? absPath.substring(normalizedRoot.length)
