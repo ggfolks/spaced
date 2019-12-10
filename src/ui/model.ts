@@ -292,7 +292,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     for (const id of selection) addSubtreeToSet(remove, id)
     applyEdit({selection: new Set(), remove})
   }
-  const pasteConfig = (config :SpaceConfig, bounds? :Bounds) => {
+  const pasteConfig = (config :SpaceConfig, center :boolean, bounds? :Bounds) => {
     const add :SpaceConfig = {}
     const newIds = new Map<string, string>()
     for (const id in config) {
@@ -324,7 +324,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const selection = new Set<string>()
     const pageParentId = getPageParentId()
     let nextPageOrder = getNextPageOrder()
-    const newCenter = getPointerWorldPosition(vec3.create())
+    const newCenter = getPointerWorldPosition(vec3.create(), center)
     if (bounds) maybeGetSnapCenter(newCenter, bounds)
     for (const id in config) {
       const newId = newIds.get(id)!
@@ -345,7 +345,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     }
     applyEdit({selection, add})
   }
-  const pasteFromClipboard = () => pasteConfig(clipboard.current!, clipboardBounds)
+  const pasteFromClipboard = () => pasteConfig(clipboard.current!, false, clipboardBounds)
   function getCategoryModel (category :CategoryNode) :ElementsModel<string> {
     return mapModel(category.children.keysValue, category.children, (value, key) => {
       if (value.current instanceof CategoryNode) return {
@@ -429,31 +429,32 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         else onLoad(JavaScript.parse(data) as SpaceConfig)
       })
     }
+    let lastPath = ""
     importConfig = async onLoad => {
       const result = await electron.dialog.showOpenDialog(
         electron.getCurrentWindow(),
         {
           title: "Import",
-          defaultPath: path.current,
+          defaultPath: lastPath || prefs.general.normalizedRoot,
           buttonLabel: "Import",
           properties: ["openFile"],
           filters,
         },
       )
-      if (result.filePaths.length > 0) readFrom(result.filePaths[0], onLoad)
+      if (result.filePaths.length > 0) readFrom(lastPath = result.filePaths[0], onLoad)
     }
     exportConfig = async config => {
       const result = await electron.dialog.showSaveDialog(
         electron.getCurrentWindow(),
         {
           title: "Export",
-          defaultPath: path.current,
+          defaultPath: lastPath || prefs.general.normalizedRoot + "export.space.js",
           buttonLabel: "Export",
           properties: ["openFile", "promptToCreate"],
           filters,
         },
       )
-      if (result.filePath) writeTo(config, result.filePath)
+      if (result.filePath) writeTo(config, lastPath = result.filePath)
     }
     const save = () => {
       saveTo(path.current)
@@ -464,14 +465,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         electron.getCurrentWindow(),
         {
           title: "Save As",
-          defaultPath: path.current || prefs.general.normalizedRoot + getPathName(),
+          defaultPath: path.current || lastPath || prefs.general.normalizedRoot + getPathName(),
           buttonLabel: "Save",
           properties: ["openFile", "promptToCreate"],
           filters,
         },
       )
       if (result.filePath) {
-        path.update(result.filePath)
+        path.update(lastPath = result.filePath)
         save()
       }
     }
@@ -481,14 +482,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           electron.getCurrentWindow(),
           {
             title: "Open Space",
-            defaultPath: path.current || prefs.general.rootDirectory,
+            defaultPath: lastPath || prefs.general.normalizedRoot,
             buttonLabel: "Open",
             properties: ["openFile"],
             filters,
           },
         )
         if (result.filePaths.length > 0) {
-          path.update(result.filePaths[0])
+          path.update(lastPath = result.filePaths[0])
           loadFrom(path.current)
         }
       }),
@@ -862,7 +863,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           separator: {},
           import: {
             name: Value.constant("Import..."),
-            action: () => importConfig(config => pasteConfig(addSelectors(config))),
+            action: () => importConfig(config => pasteConfig(addSelectors(config), true)),
           },
           export: {
             name: Value.constant("Export..."),
