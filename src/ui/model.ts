@@ -5,7 +5,7 @@ import {MutableSet} from "tfw/core/rcollect"
 import {Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
-  DEFAULT_PAGE, NO_HIDE_FLAGS_MASK, GameEngine, GameObject,
+  ALL_HIDE_FLAGS_MASK, DEFAULT_PAGE, NO_HIDE_FLAGS_MASK, GameEngine, GameObject,
   GameObjectConfig, PrimitiveTypes, SpaceConfig, Tile,
 } from "tfw/engine/game"
 import {Model as RenderModel, FusedModels} from "tfw/engine/render"
@@ -146,7 +146,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         lastEdit.edit[id] = gameObjectConfig
       }
       for (const id of reverseEdit.remove) {
-        if (!lastEdit.add[id]) {
+        const addConfig = lastEdit.add[id]
+        if (addConfig) {
+          delete lastEdit.add[id]
+          lastEdit.edit[id] = addConfig
+        } else {
           lastEdit.remove.add(id)
         }
       }
@@ -251,33 +255,32 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     applyEdit({selection: new Set([name]), add: {[name]: config}})
     return name
   }
-  const addSubtreeToConfig = (config :SpaceConfig, rootId :string) => {
+  const addSubtreeToConfig = (config :SpaceConfig, rootId :string, mask = NO_HIDE_FLAGS_MASK) => {
     if (config[rootId]) return
     const gameObject = gameEngine.gameObjects.require(rootId)
-    config[rootId] = gameObject.createConfig(NO_HIDE_FLAGS_MASK)
+    config[rootId] = gameObject.createConfig(mask)
     for (const childId of gameObject.transform.childIds.current) {
       addSubtreeToConfig(config, childId)
     }
   }
-  const clipboardOffsets = new Map<string, vec3>()
   const clipboardBounds = Bounds.create()
-  const copySelected = () => {
-    clipboardOffsets.clear()
+  const getSelectedConfig = (bounds :Bounds, mask = NO_HIDE_FLAGS_MASK) => {
     const config :SpaceConfig = {}
     const firstId = selection.values().next().value
     const selector = gameEngine.gameObjects.require(firstId).requireComponent<Selector>("selector")
-    selector.getGroupBounds(clipboardBounds)
-    const center = Bounds.getCenter(vec3.create(), clipboardBounds)
-    center[1] = 0
+    selector.getGroupBounds(bounds)
+    const center = Bounds.getCenter(vec3.create(), bounds)
     for (const id of selection) {
-      addSubtreeToConfig(config, id)
+      addSubtreeToConfig(config, id, mask)
       const transform = gameEngine.gameObjects.require(id).transform
       if (!(transform.parentId && selection.has(transform.parentId))) {
-        clipboardOffsets.set(id, vec3.subtract(vec3.create(), transform.position, center))
+        config[id].transform.localPosition =
+          vec3.subtract(vec3.create(), transform.position, center)
       }
     }
-    clipboard.update(config)
+    return config
   }
+  const copySelected = () => clipboard.update(getSelectedConfig(clipboardBounds))
   const addSubtreeToSet = (set :Set<string>, rootId :string) => {
     set.add(rootId)
     for (const childId of gameEngine.gameObjects.require(rootId).transform.childIds.current) {
@@ -289,7 +292,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     for (const id of selection) addSubtreeToSet(remove, id)
     applyEdit({selection: new Set(), remove})
   }
-  const pasteConfig = (config :SpaceConfig, bounds? :Bounds, offsets? :Map<string, vec3>) => {
+  const pasteConfig = (config :SpaceConfig, bounds? :Bounds) => {
     const add :SpaceConfig = {}
     const newIds = new Map<string, string>()
     for (const id in config) {
@@ -329,8 +332,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       const newConfig = replaceIds(config[id])
       if (!(newConfig.transform && newConfig.transform.parentId)) {
         if (!newConfig.transform) newConfig.transform = {}
-        if (offsets) {
-          newConfig.transform.position = vec3.add(vec3.create(), newCenter, offsets.get(id)!)
+        if (newConfig.transform.localPosition) {
+          newConfig.transform.localPosition =
+            vec3.add(vec3.create(), newConfig.transform.localPosition, newCenter)
+        } else {
+          newConfig.transform.localPosition = vec3.clone(newCenter)
         }
         newConfig.transform.parentId = pageParentId
         newConfig.order = nextPageOrder++
@@ -339,9 +345,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     }
     applyEdit({selection, add})
   }
-  const pasteFromClipboard = () => {
-    pasteConfig(clipboard.current!, clipboardBounds, clipboardOffsets)
-  }
+  const pasteFromClipboard = () => pasteConfig(clipboard.current!, clipboardBounds)
   function getCategoryModel (category :CategoryNode) :ElementsModel<string> {
     return mapModel(category.children.keysValue, category.children, (value, key) => {
       if (value.current instanceof CategoryNode) return {
@@ -745,7 +749,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
 
               // use the bounds center as the fused model position
               const center = Bounds.getCenter(vec3.create(), bounds)
-              center[1] = 0
               const encoder = new FusedEncoder()
               const tmpp = vec3.create()
               for (const id of remove) {
@@ -857,20 +860,14 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
             },
           },
           separator: {},
-          importAsSelection: {
-            name: Value.constant("Import as Selection..."),
+          import: {
+            name: Value.constant("Import..."),
             action: () => importConfig(config => pasteConfig(addSelectors(config))),
           },
-          exportSelection: {
-            name: Value.constant("Export Selection..."),
+          export: {
+            name: Value.constant("Export..."),
             enabled: haveSelection,
-            action: () => {
-              const config :SpaceConfig = {}
-              for (const id of selection) {
-                config[id] = gameEngine.gameObjects.require(id).createConfig()
-              }
-              exportConfig(config)
-            },
+            action: () => exportConfig(getSelectedConfig(Bounds.create(), ALL_HIDE_FLAGS_MASK)),
           }
         }),
       },

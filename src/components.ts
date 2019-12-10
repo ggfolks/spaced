@@ -66,6 +66,12 @@ export class Selector extends TypeScriptComponent {
   }
 
   getGroupBounds (result = Bounds.create()) :Bounds {
+    let gridY = 0
+    const activeCamera = this.gameEngine.renderEngine.activeCameras[0]
+    if (activeCamera) {
+      const controller = activeCamera.requireComponent<CameraController>("cameraController")
+      gridY = controller.target[1]
+    }
     Bounds.empty(result)
     const tileBounds = Bounds.create()
     this._applyToGroupIds(id => {
@@ -86,6 +92,8 @@ export class Selector extends TypeScriptComponent {
         if (meshRenderer) Bounds.union(result, result, meshRenderer.bounds)
       }
     })
+    result.min[1] = gridY
+    result.max[1] = gridY
     return result
   }
 
