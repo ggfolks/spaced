@@ -30,6 +30,7 @@ class GeneralPrefs extends PrefsCategory {
   readonly title = "General"
 
   @property("directory") rootDirectory = ""
+  @property("url") catalog = ""
   @property("boolean", {editable: false}) showStats = false
   @property("boolean", {editable: false}) showEditorObjects = false
   @property("boolean", {editable: false}) showCoords = true

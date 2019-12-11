@@ -176,6 +176,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const showEditorObjects = prefs.general.getProperty("showEditorObjects") as Mutable<boolean>
   const showStats = prefs.general.getProperty("showStats") as Mutable<boolean>
   const showCoords = prefs.general.getProperty("showCoords") as Mutable<boolean>
+  const activeTree = Mutable.local("objects")
   const filterGameObjectKeys = (keys :string[]) => {
     if (showEditorObjects.current) return keys
     return keys.filter(key => !(gameEngine.gameObjects.require(key).hideFlags & EDITOR_HIDE_FLAG))
@@ -1010,30 +1011,49 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       }
       applyEdit(edit)
     },
-    rootModel: gameObjectModel(gameEngine.rootIds),
-    selectedKeys: selection,
-    updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
-      const gameObject = gameEngine.gameObjects.require(key as string)
-      const activePage = gameEngine.activePage.current
-      let parentId :string|undefined
-      let childIds :string[]
-      let newExpanded = new Set(expanded)
-      if (parent === undefined) {
-        parentId = (activePage === DEFAULT_PAGE) ? undefined : activePage
-        childIds = gameEngine.rootIds.current
-      } else {
-        parentId = parent as string
-        childIds = gameEngine.gameObjects.require(parentId).transform.childIds.current
-        newExpanded.add(parentId)
-      }
-      const edit :PMap<any> = {}
-      if (parentId !== gameObject.transform.parentId) edit.transform = {parentId}
-      childIds = filterGameObjectKeys(childIds)
-      if (childIds.indexOf(key as string) !== index) {
-        edit.order = getNewOrder(childIds, index, getOrder)
-      }
-      applyEdit({expanded: newExpanded, edit: {[key]: edit}})
-    },
+    treeModel: dataModel({
+      objects: {
+        name: Value.constant("Objects"),
+        key: Value.constant("objects"),
+        rootModel: gameObjectModel(gameEngine.rootIds),
+        selectedKeys: selection,
+        updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
+          const gameObject = gameEngine.gameObjects.require(key as string)
+          const activePage = gameEngine.activePage.current
+          let parentId :string|undefined
+          let childIds :string[]
+          let newExpanded = new Set(expanded)
+          if (parent === undefined) {
+            parentId = (activePage === DEFAULT_PAGE) ? undefined : activePage
+            childIds = gameEngine.rootIds.current
+          } else {
+            parentId = parent as string
+            childIds = gameEngine.gameObjects.require(parentId).transform.childIds.current
+            newExpanded.add(parentId)
+          }
+          const edit :PMap<any> = {}
+          if (parentId !== gameObject.transform.parentId) edit.transform = {parentId}
+          childIds = filterGameObjectKeys(childIds)
+          if (childIds.indexOf(key as string) !== index) {
+            edit.order = getNewOrder(childIds, index, getOrder)
+          }
+          applyEdit({expanded: newExpanded, edit: {[key]: edit}})
+        },
+      },
+      catalog: {
+        name: Value.constant("Catalog"),
+        key: Value.constant("catalog"),
+        rootModel: dataModel({}),
+        selectedKeys: Value.constant([]),
+        updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
+        },
+      },
+    }, prefs.general.getProperty<string>("catalog").map(catalog => {
+      const keys = ["objects"]
+      if (catalog) keys.push("catalog")
+      return keys
+    })),
+    activeTree,
     componentsModel: {
       keys: selectionArray.switchMap(selection => {
         if (selection.length === 0) return Value.constant<string[]>([])

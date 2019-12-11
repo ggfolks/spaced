@@ -20,7 +20,65 @@ const MenuBarConfig = {
   model: "menuBarModel",
 }
 
-const TabbedPaneConfig = {
+const ScrollBarConfig = {
+  type: "scrollBar",
+  contents: {
+    type: "box",
+    contents: {type: "spacer"},
+  },
+  handle: {
+    type: "box",
+    scopeId: "scrollHandle",
+    contents: {type: "spacer"},
+  },
+}
+
+const TreeTabsConfig = {
+  type: "tabbedPane",
+  tabElement: {
+    type: "box",
+    contents: {type: "label", text: "name"},
+  },
+  contentElement: {
+    type: "box",
+    scopeId: "leftColumn",
+    contents: {
+      type: "scroller",
+      orient: "vert",
+      stretchContents: true,
+      bar: ScrollBarConfig,
+      contents: {
+        type: "treeView",
+        element: {
+          type: "box",
+          contents: {
+            type: "editableLabel",
+            text: "name",
+            contents: {
+              type: "box",
+              contents: {
+                type: "label",
+                overrideParentState: "normal",
+                scopeId: "treeViewNode",
+              },
+            },
+          },
+          style: {halign: "left"},
+        },
+        model: "rootModel",
+        key: "id",
+        selectedKeys: "selectedKeys",
+        updateParentOrder: "updateParentOrder",
+      },
+    },
+    style: {halign: "stretch", valign: "stretch", preferredWidth: 200},
+  },
+  model: "treeModel",
+  key: "key",
+  activeKey: "activeTree",
+}
+
+const PageTabsConfig = {
   type: "tabbedPane",
   tabElement: {
     type: "box",
@@ -96,19 +154,6 @@ const TabbedPaneConfig = {
   constraints: {stretch: true},
 }
 
-const ScrollBarConfig = {
-  type: "scrollBar",
-  contents: {
-    type: "box",
-    contents: {type: "spacer"},
-  },
-  handle: {
-    type: "box",
-    scopeId: "scrollHandle",
-    contents: {type: "spacer"},
-  },
-}
-
 export function createUIConfig (minSize :Value<dim2>) :Root.Config {
   return {
     type: "root",
@@ -178,56 +223,8 @@ export function createUIConfig (minSize :Value<dim2>) :Root.Config {
           offPolicy: "stretch",
           constraints: {stretch: true},
           contents: [
-            {
-              type: "box",
-              contents: {
-                type: "column",
-                offPolicy: "stretch",
-                contents: [
-                  {
-                    type: "box",
-                    contents: {type: "spacer", height: 41},
-                  },
-                  {
-                    type: "box",
-                    scopeId: "leftColumn",
-                    constraints: {stretch: true},
-                    contents: {
-                      type: "scroller",
-                      orient: "vert",
-                      stretchContents: true,
-                      bar: ScrollBarConfig,
-                      contents: {
-                        type: "treeView",
-                        element: {
-                          type: "box",
-                          contents: {
-                            type: "editableLabel",
-                            text: "name",
-                            contents: {
-                              type: "box",
-                              contents: {
-                                type: "label",
-                                overrideParentState: "normal",
-                                scopeId: "treeViewNode",
-                              },
-                            },
-                          },
-                          style: {halign: "left"},
-                        },
-                        model: "rootModel",
-                        key: "id",
-                        selectedKeys: "selectedKeys",
-                        updateParentOrder: "updateParentOrder",
-                      },
-                    },
-                    style: {halign: "stretch", valign: "stretch"},
-                  },
-                ],
-              },
-              style: {halign: "stretch", valign: "stretch", preferredWidth: 200},
-            },
-            TabbedPaneConfig,
+            TreeTabsConfig,
+            PageTabsConfig,
             {
               type: "box",
               contents: {
