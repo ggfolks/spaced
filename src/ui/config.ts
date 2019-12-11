@@ -243,102 +243,108 @@ export function createUIConfig (minSize :Value<dim2>) :Root.Config {
                     scopeId: "rightColumn",
                     constraints: {stretch: true},
                     contents: {
-                      type: "column",
-                      gap: 5,
-                      offPolicy: "stretch",
-                      contents: [
-                        {
-                          type: "dragVList",
-                          element: {
-                            type: "box",
-                            scopeId: "component",
-                            overrideParentState: "normal",
-                            contents: {
-                              type: "column",
-                              offPolicy: "stretch",
-                              contents: [
-                                {
-                                  type: "box",
-                                  scopeId: "componentHeader",
-                                  contents: {
-                                    type: "row",
-                                    contents: [
-                                      {
-                                        type: "box",
-                                        scopeId: "componentType",
-                                        contents: {type: "label", text: "type"},
-                                        constraints: {stretch: true},
-                                        style: {halign: "left"},
-                                      },
-                                      {
-                                        type: "hlist",
-                                        model: "actionsModel",
-                                        element: {
+                      type: "scroller",
+                      orient: "vert",
+                      stretchContents: true,
+                      bar: ScrollBarConfig,
+                      contents: {
+                        type: "column",
+                        gap: 5,
+                        offPolicy: "stretch",
+                        contents: [
+                          {
+                            type: "dragVList",
+                            element: {
+                              type: "box",
+                              scopeId: "component",
+                              overrideParentState: "normal",
+                              contents: {
+                                type: "column",
+                                offPolicy: "stretch",
+                                contents: [
+                                  {
+                                    type: "box",
+                                    scopeId: "componentHeader",
+                                    contents: {
+                                      type: "row",
+                                      contents: [
+                                        {
+                                          type: "box",
+                                          scopeId: "componentType",
+                                          contents: {type: "label", text: "type"},
+                                          constraints: {stretch: true},
+                                          style: {halign: "left"},
+                                        },
+                                        {
+                                          type: "hlist",
+                                          model: "actionsModel",
+                                          element: {
+                                            type: "button",
+                                            contents: {
+                                              type: "box",
+                                              scopeId: "componentActionButton",
+                                              contents: {type: "label", text: "name"},
+                                            },
+                                            onClick: "action",
+                                          },
+                                        },
+                                        {
                                           type: "button",
+                                          visible: "removable",
                                           contents: {
                                             type: "box",
-                                            scopeId: "componentActionButton",
-                                            contents: {type: "label", text: "name"},
+                                            scopeId: "removeComponentButton",
+                                            contents: {type: "label", text: Value.constant("×")},
                                           },
-                                          onClick: "action",
+                                          onClick: "remove",
                                         },
-                                      },
-                                      {
-                                        type: "button",
-                                        visible: "removable",
-                                        contents: {
-                                          type: "box",
-                                          scopeId: "removeComponentButton",
-                                          contents: {type: "label", text: Value.constant("×")},
-                                        },
-                                        onClick: "remove",
-                                      },
-                                    ],
+                                      ],
+                                    },
+                                    style: {halign: "stretch", valign: "stretch"},
                                   },
-                                  style: {halign: "stretch", valign: "stretch"},
-                                },
-                                {
-                                  type: "box",
-                                  scopeId: "componentBody",
-                                  contents: {
-                                    type: "propertyView",
-                                    gap: 5,
-                                    scopeId: "componentProperties",
-                                    editable: Value.constant(true),
-                                    offPolicy: "stretch",
-                                    model: "propertiesModel",
+                                  {
+                                    type: "box",
+                                    scopeId: "componentBody",
+                                    contents: {
+                                      type: "propertyView",
+                                      gap: 5,
+                                      scopeId: "componentProperties",
+                                      editable: Value.constant(true),
+                                      offPolicy: "stretch",
+                                      model: "propertiesModel",
+                                    },
+                                    style: {halign: "stretch", valign: "stretch"},
                                   },
-                                  style: {halign: "stretch", valign: "stretch"},
-                                },
-                              ],
+                                ],
+                              },
+                              style: {halign: "stretch", valign: "top"},
                             },
-                            style: {halign: "stretch", valign: "top"},
+                            model: "componentsModel",
+                            key: "type",
+                            updateOrder: "updateComponentOrder",
                           },
-                          model: "componentsModel",
-                          key: "type",
-                          updateOrder: "updateComponentOrder",
-                        },
-                        {
-                          type: "box",
-                          scopeId: "default",
-                          visible: "haveSelection",
-                          contents: {
-                            type: "dropdown",
-                            dropLeft: true,
+                          {
+                            type: "box",
+                            scopeId: "default",
+                            visible: "haveSelection",
                             contents: {
-                              type: "box",
-                              scopeId: "addComponentButton",
-                              contents: {type: "label", text: "componentTypeLabel"},
+                              type: "dropdown",
+                              dropLeft: true,
+                              contents: {
+                                type: "box",
+                                scopeId: "addComponentButton",
+                                contents: {type: "label", text: "componentTypeLabel"},
+                              },
+                              element: Dropdown.createItemConfig(
+                                "dropdownItem",
+                                true,
+                                "addComponentItem",
+                              ),
+                              model: "componentTypesModel",
                             },
-                            element: Dropdown.createItemConfig(
-                              "dropdownItem",
-                              true,
-                              "addComponentItem",
-                            ),
-                            model: "componentTypesModel",
                           },
-                        },
-                      ],
+                        ],
+                      },
                     },
                     style: {halign: "stretch", valign: "stretch"},
                   },
