@@ -176,14 +176,18 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const showEditorObjects = prefs.general.getProperty("showEditorObjects") as Mutable<boolean>
   const showStats = prefs.general.getProperty("showStats") as Mutable<boolean>
   const showCoords = prefs.general.getProperty("showCoords") as Mutable<boolean>
+  const filterGameObjectKeys = (keys :string[]) => {
+    if (showEditorObjects.current) return keys
+    return keys.filter(key => !(gameEngine.gameObjects.require(key).hideFlags & EDITOR_HIDE_FLAG))
+  }
+  const filterComponentTypes = (gameObject :GameObject) => {
+    const types = gameObject.componentTypes.current
+    if (showEditorObjects.current) return types
+    return types.filter(type => !(gameObject.requireComponent(type).hideFlags & EDITOR_HIDE_FLAG))
+  }
   function gameObjectModel (keys :Value<string[]>) :ElementsModel<string> {
     return {
-      keys: Value.join2(keys, showEditorObjects).map(([keys, showEditorObjects]) => {
-        if (showEditorObjects) return keys
-        return keys.filter(
-          key => !(gameEngine.gameObjects.require(key).hideFlags & EDITOR_HIDE_FLAG),
-        )
-      }),
+      keys: Value.join2(keys, showEditorObjects).map(([keys]) => filterGameObjectKeys(keys)),
       resolve: (key :ModelKey) => {
         let model = models.get(key)
         if (!model) {
@@ -1024,6 +1028,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       }
       const edit :PMap<any> = {}
       if (parentId !== gameObject.transform.parentId) edit.transform = {parentId}
+      childIds = filterGameObjectKeys(childIds)
       if (childIds.indexOf(key as string) !== index) {
         edit.order = getNewOrder(childIds, index, getOrder)
       }
@@ -1034,12 +1039,9 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         if (selection.length === 0) return Value.constant<string[]>([])
         const getComponentTypes = (id :string) => {
           const gameObject = gameEngine.gameObjects.require(id)
-          return Value.join2(showEditorObjects, gameObject.componentTypes).map(([show, types]) => {
-            if (show) return types
-            return types.filter(
-              type => !(gameObject.requireComponent(type).hideFlags & EDITOR_HIDE_FLAG),
-            )
-          })
+          return Value
+            .join2(showEditorObjects, gameObject.componentTypes)
+            .map(() => filterComponentTypes(gameObject))
         }
         if (selection.length === 1) return getComponentTypes(selection[0])
         const values :Value<string[]>[] = []
@@ -1093,7 +1095,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     },
     updateComponentOrder: (key :string, index :number) => {
       const gameObject = gameEngine.gameObjects.require(selectionArray.current[0])
-      const types = gameObject.componentTypes.current
+      const types = filterComponentTypes(gameObject)
       if (types.indexOf(key) === index) return
       applyToSelection({
         [key]: {
