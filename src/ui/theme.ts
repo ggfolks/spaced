@@ -61,6 +61,12 @@ export const UIStyles = customStyles({
       fill: {type: "color", color: "#202020"},
       cornerRadius: dialogBodyCorner,
     },
+    scrollBar: {
+      fill: {type: "color", color: "#101010"},
+    },
+    scrollHandle: {
+      fill: {type: "color", color: "#202020"},
+    },
   },
 })
 
@@ -159,5 +165,11 @@ export const UITheme = customTheme({
   },
   prefsProperties: {
     label: {font: "$dialog", fill: "$lightGray"},
+  },
+  scrollBar: {
+    box: {minWidth: 10, background: "$scrollBar"},
+  },
+  scrollHandle: {
+    box: {background: "$scrollHandle"},
   },
 })

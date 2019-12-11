@@ -96,11 +96,25 @@ const TabbedPaneConfig = {
   constraints: {stretch: true},
 }
 
+const ScrollBarConfig = {
+  type: "scrollBar",
+  contents: {
+    type: "box",
+    contents: {type: "spacer"},
+  },
+  handle: {
+    type: "box",
+    scopeId: "scrollHandle",
+    contents: {type: "spacer"},
+  },
+}
+
 export function createUIConfig (minSize :Value<dim2>) :Root.Config {
   return {
     type: "root",
     scale: new Scale(window.devicePixelRatio),
     autoSize: true,
+    hintSize: minSize,
     minSize,
     keymap: {
       // TODO: use something that abstracts over the fact that on Mac we use Meta for many things
@@ -179,27 +193,33 @@ export function createUIConfig (minSize :Value<dim2>) :Root.Config {
                     scopeId: "leftColumn",
                     constraints: {stretch: true},
                     contents: {
-                      type: "treeView",
-                      element: {
-                        type: "box",
-                        contents: {
-                          type: "editableLabel",
-                          text: "name",
+                      type: "scroller",
+                      orient: "vert",
+                      stretchContents: true,
+                      bar: ScrollBarConfig,
+                      contents: {
+                        type: "treeView",
+                        element: {
+                          type: "box",
                           contents: {
-                            type: "box",
+                            type: "editableLabel",
+                            text: "name",
                             contents: {
-                              type: "label",
-                              overrideParentState: "normal",
-                              scopeId: "treeViewNode",
+                              type: "box",
+                              contents: {
+                                type: "label",
+                                overrideParentState: "normal",
+                                scopeId: "treeViewNode",
+                              },
                             },
                           },
+                          style: {halign: "left"},
                         },
-                        style: {halign: "left"},
+                        model: "rootModel",
+                        key: "id",
+                        selectedKeys: "selectedKeys",
+                        updateParentOrder: "updateParentOrder",
                       },
-                      model: "rootModel",
-                      key: "id",
-                      selectedKeys: "selectedKeys",
-                      updateParentOrder: "updateParentOrder",
                     },
                     style: {halign: "stretch", valign: "stretch"},
                   },
