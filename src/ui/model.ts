@@ -1,8 +1,8 @@
 import {refEquals} from "tfw/core/data"
 import {Bounds, dim2, mat4, quat, vec2, vec3} from "tfw/core/math"
-import {Mutable, Value} from "tfw/core/react"
+import {Emitter, Mutable, Value} from "tfw/core/react"
 import {MutableSet} from "tfw/core/rcollect"
-import {Noop, PMap, getValue} from "tfw/core/util"
+import {Disposable, Disposer, Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
   ALL_HIDE_FLAGS_MASK, DEFAULT_PAGE, NO_HIDE_FLAGS_MASK, GameEngine, GameObject,
@@ -58,6 +58,108 @@ const electron = window.require && window.require("electron").remote
 export const selection = MutableSet.local<string>()
 
 export let applyEdit :(edit :GameObjectEdit) => void = Noop
+
+interface CatalogNodeConfig {
+  name :string
+  objects :SpaceConfig
+  children :CatalogNodeConfig[]
+}
+
+const catalogNodes = new Map<number, CatalogNode>()
+const catalogChanged = new Emitter<void>()
+const emitCatalogChanged = () => catalogChanged.emit()
+
+let nextCatalogNodeId = 0
+
+class CatalogNode implements Disposable {
+  readonly id = nextCatalogNodeId++
+  parentId = 0
+  readonly name = Mutable.local("")
+  readonly objects = Mutable.local<SpaceConfig>({})
+  readonly childIds = Mutable.local<number[]>([])
+  readonly expanded = Mutable.local(false)
+
+  private _disposer = new Disposer()
+
+  constructor () {
+    catalogNodes.set(this.id, this)
+    this._disposer.add(this.name.onChange(emitCatalogChanged))
+    this._disposer.add(this.objects.onChange(emitCatalogChanged))
+    this._disposer.add(this.childIds.onChange(emitCatalogChanged))
+  }
+
+  createModel () {
+    return new Model({
+      id: Value.constant(this.id),
+      name: this.name,
+      hasChildren: this.childIds.map(childIds => childIds.length > 0),
+      childModel: this.createElementsModel(),
+      expanded: this.expanded,
+      toggleExpanded: () => this.expanded.update(!this.expanded.current),
+    })
+  }
+
+  createElementsModel () :ElementsModel<number> {
+    return {
+      keys: this.childIds,
+      resolve: childId => catalogNodes.get(childId)!.createModel(),
+    }
+  }
+
+  createConfig () :CatalogNodeConfig {
+    return {
+      name: this.name.current,
+      objects: this.objects.current,
+      children: this.childIds.current.map(childId => catalogNodes.get(childId)!.createConfig()),
+    }
+  }
+
+  addNewChild (objects :SpaceConfig) :number {
+    const node = new CatalogNode()
+    node.parentId = this.id
+    node.name.update("New Entry")
+    node.objects.update(objects)
+    this.insertChild(node.id, this.childIds.current.length)
+    return node.id
+  }
+
+  insertChild (id :number, index :number) {
+    const childIds = this.childIds.current.slice()
+    childIds.splice(index, 0, id)
+    this.childIds.update(childIds)
+  }
+
+  deleteChild (id :number) {
+    const childIds = this.childIds.current.slice()
+    childIds.splice(childIds.indexOf(id), 1)
+    this.childIds.update(childIds)
+  }
+
+  moveChild (id :number, index :number) {
+    const oldIndex = this.childIds.current.indexOf(id)
+    if (oldIndex === index) return
+    const childIds = this.childIds.current.slice()
+    childIds.splice(oldIndex, 1)
+    childIds.splice(index < oldIndex ? index : index - 1, 0, id)
+    this.childIds.update(childIds)
+  }
+
+  dispose () {
+    catalogNodes.delete(this.id)
+    this._disposer.dispose()
+  }
+}
+
+const catalogRoot = new CatalogNode()
+const catalogSelection = MutableSet.local<number>()
+
+function clearCatalog () {
+  catalogSelection.clear()
+  catalogRoot.childIds.update([])
+  for (const node of catalogNodes.values()) {
+    if (node !== catalogRoot) node.dispose()
+  }
+}
 
 export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui :UI) {
   const getOrder = (id :string) => {
@@ -279,8 +381,9 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       addSubtreeToConfig(config, id, mask)
       const transform = gameEngine.gameObjects.require(id).transform
       if (!(transform.parentId && selection.has(transform.parentId))) {
-        config[id].transform.localPosition =
-          vec3.subtract(vec3.create(), transform.position, center)
+        const transformConfig = config[id].transform
+        transformConfig.parentId = undefined
+        transformConfig.localPosition = vec3.subtract(vec3.create(), transform.position, center)
       }
     }
     return config
@@ -394,7 +497,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     {name: "Spaces", extensions: ["space.js"]},
     {name: "All Files", extensions: ["*"]},
   ]
-  let writeTo :(config :SpaceConfig, path :string) => void = Noop
+  let writeTo :(value :any, path :string, callback? :() => void) => void = Noop
   const saveTo = (path :string) => writeTo(gameEngine.createConfig(), path)
   let readFrom :(path :string, onLoad :(config :SpaceConfig) => void) => void = Noop
   const loadFrom = (path :string) => readFrom(path, loadConfig)
@@ -421,11 +524,51 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     open(URL.createObjectURL(file), "_self")
     // TODO: call revokeObjectURL when finished with download
   }
+
+  prefs.general.getProperty<string>("catalog").onValue(async url => {
+    clearCatalog()
+    if (!url) return
+    const loadCatalogNode = (node :CatalogNode, config :CatalogNodeConfig) => {
+      node.name.update(config.name)
+      node.objects.update(config.objects)
+      node.childIds.update(
+        config.children.map(config => loadCatalogNode(new CatalogNode(), config).id),
+      )
+      return node
+    }
+    let rootConfig :CatalogNodeConfig|undefined
+    try {
+      rootConfig = await JavaScript.loadUncached(url) as CatalogNodeConfig
+    } catch (error) {
+      // ignore; assume we haven't saved the catalog yet
+    }
+    if (rootConfig) loadCatalogNode(catalogRoot, rootConfig)
+  })
+
+  let catalogTimeout :number|undefined
+  const maybeSaveCatalog = (callback? :() => void) => {
+    if (catalogTimeout !== undefined) {
+      window.clearTimeout(catalogTimeout)
+      catalogTimeout = undefined
+      const url = prefs.general.catalog
+      if (url) {
+        writeTo(catalogRoot.createConfig(), prefs.general.normalizedRoot + url, callback)
+        return
+      }
+    }
+    if (callback) callback()
+  }
+  catalogChanged.onEmit(() => {
+    if (catalogTimeout !== undefined) window.clearTimeout(catalogTimeout)
+    catalogTimeout = window.setTimeout(maybeSaveCatalog, 15000)
+  })
+
   if (window.require) {
     const fs = window.require("fs")
-    writeTo = (config, path) => {
-      fs.writeFile(path, JavaScript.stringify(config), (error? :Error) => {
+    writeTo = (value, path, callback) => {
+      fs.writeFile(path, JavaScript.stringify(value), (error? :Error) => {
         if (error) console.warn(error)
+        if (callback) callback()
       })
     }
     readFrom = (path, onLoad) => {
@@ -464,6 +607,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const save = () => {
       saveTo(path.current)
       savedVersion.update(activeVersion.current)
+      maybeSaveCatalog()
     }
     const saveAs = async () => {
       const result = await electron.dialog.showSaveDialog(
@@ -521,7 +665,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           )
           if (!result) return
         }
-        electron.process.exit()
+        maybeSaveCatalog(() => electron.process.exit())
       }),
     }
     openModel = {
@@ -654,6 +798,155 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       action: () => checked.update(!checked.current),
     }
   }
+  const selectionData :ModelData = {
+    fuse: {
+      name: Value.constant("Fuse"),
+      enabled: haveSelection,
+      action: () => {
+        // get the combined bounds of all components
+        const firstId = selection.values().next().value
+        const firstObject = gameEngine.gameObjects.require(firstId)
+        const selector = firstObject.requireComponent<Selector>("selector")
+        const bounds = selector.getGroupBounds()
+
+        // merge the selection and all children
+        const remove = new Set<string>()
+        for (const id of selection) addSubtreeToSet(remove, id)
+
+        // use the bounds center as the fused model position
+        const center = Bounds.getCenter(vec3.create(), bounds)
+        const encoder = new FusedEncoder()
+        const tmpp = vec3.create()
+        for (const id of remove) {
+          const gameObject = gameEngine.gameObjects.require(id)
+          const transform = gameObject.transform
+          const model = gameObject.getComponent<RenderModel>("model")
+          if (model) {
+            const tile = gameObject.getComponent<Tile>("tile")
+            let flags = 0
+            if (tile) {
+              if (tile.walkable) flags |= WALKABLE_FLAG
+              vec3.copy(bounds.min, tile.min)
+              vec3.copy(bounds.max, tile.max)
+            } else {
+              Bounds.copy(bounds, model.bounds)
+              Bounds.transformMat4(bounds, bounds, transform.worldToLocalMatrix)
+            }
+            encoder.addTile(
+              model.url,
+              bounds,
+              vec3.subtract(tmpp, transform.position, center),
+              transform.rotation,
+              transform.lossyScale,
+              flags,
+            )
+          }
+          const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
+          if (fusedModels) {
+            encoder.addFusedTiles(
+              fusedModels.encoded,
+              vec3.subtract(tmpp, transform.position, center),
+              transform.rotation,
+              transform.lossyScale,
+            )
+          }
+        }
+        const fusedId = getUnusedName("fused")
+        applyEdit({selection: new Set([fusedId]), remove, add: {
+          [fusedId]: {
+            order: getNextPageOrder(),
+            transform: {parentId: getPageParentId(), localPosition: center},
+            fusedModels: {encoded: encoder.finish()},
+            selector: {hideFlags: EDITOR_HIDE_FLAG},
+          },
+        }})
+      },
+    },
+    explode: {
+      name: Value.constant("Explode"),
+      enabled: haveSelection,
+      action: () => {
+        const oldSelection = new Set(selection)
+        const matrix = mat4.create()
+        const add :SpaceConfig = {}
+        const remove = new Set<string>()
+        const newSelection = new Set<string>()
+        const parentId = getPageParentId()
+        let order = getNextPageOrder()
+        for (const id of oldSelection) {
+          addSubtreeToSet(remove, id)
+          const gameObject = gameEngine.gameObjects.require(id)
+          const transform = gameObject.transform
+          const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
+          if (fusedModels) {
+            decodeFused(fusedModels.encoded, {
+              visitTile: (url, bounds, position, rotation, scale, flags) => {
+                mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
+                mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
+                const modelId = getUnusedName("tile", add)
+                newSelection.add(modelId)
+                add[modelId] = {
+                  order: order++,
+                  transform: {
+                    parentId,
+                    localPosition: mat4.getTranslation(vec3.create(), matrix),
+                    localRotation: mat4.getRotation(quat.create(), matrix),
+                    localScale: mat4.getScaling(vec3.create(), matrix),
+                  },
+                  model: {url},
+                  tile: {
+                    min: vec3.clone(bounds.min),
+                    max: vec3.clone(bounds.max),
+                    walkable: Boolean(flags & WALKABLE_FLAG),
+                  },
+                  selector: {hideFlags: EDITOR_HIDE_FLAG},
+                }
+              },
+              visitFusedTiles: (source, position, rotation, scale) => {
+                mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
+                mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
+                const fusedId = getUnusedName("fused", add)
+                newSelection.add(fusedId)
+                add[fusedId] = {
+                  order: order++,
+                  transform: {
+                    parentId,
+                    localPosition: mat4.getTranslation(vec3.create(), matrix),
+                    localRotation: mat4.getRotation(quat.create(), matrix),
+                    localScale: mat4.getScaling(vec3.create(), matrix),
+                  },
+                  fusedModels: {encoded: source},
+                  selector: {hideFlags: EDITOR_HIDE_FLAG},
+                }
+              },
+            })
+          }
+        }
+        applyEdit({selection: newSelection, add, remove})
+      },
+    },
+    separator: {},
+    import: {
+      name: Value.constant("Import..."),
+      action: () => importConfig(config => pasteConfig(addSelectors(config), true)),
+    },
+    export: {
+      name: Value.constant("Export..."),
+      enabled: haveSelection,
+      action: () => exportConfig(getSelectedConfig(Bounds.create(), ALL_HIDE_FLAGS_MASK)),
+    },
+    separator2: {},
+    saveToCatalog: {
+      name: Value.constant("Save to Catalog"),
+      enabled: haveSelection,
+      action: () => {
+        activeTree.update("catalog")
+        const id = catalogRoot.addNewChild(getSelectedConfig(Bounds.create(), ALL_HIDE_FLAGS_MASK))
+        catalogSelection.clear()
+        catalogSelection.add(id)
+      },
+    },
+  }
 
   return new Model({
     menuBarModel: dataModel({
@@ -738,144 +1031,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       },
       selection: {
         name: Value.constant("Selection"),
-        model: dataModel({
-          fuse: {
-            name: Value.constant("Fuse"),
-            enabled: haveSelection,
-            action: () => {
-              // get the combined bounds of all components
-              const firstId = selection.values().next().value
-              const firstObject = gameEngine.gameObjects.require(firstId)
-              const selector = firstObject.requireComponent<Selector>("selector")
-              const bounds = selector.getGroupBounds()
-
-              // merge the selection and all children
-              const remove = new Set<string>()
-              for (const id of selection) addSubtreeToSet(remove, id)
-
-              // use the bounds center as the fused model position
-              const center = Bounds.getCenter(vec3.create(), bounds)
-              const encoder = new FusedEncoder()
-              const tmpp = vec3.create()
-              for (const id of remove) {
-                const gameObject = gameEngine.gameObjects.require(id)
-                const transform = gameObject.transform
-                const model = gameObject.getComponent<RenderModel>("model")
-                if (model) {
-                  const tile = gameObject.getComponent<Tile>("tile")
-                  let flags = 0
-                  if (tile) {
-                    if (tile.walkable) flags |= WALKABLE_FLAG
-                    vec3.copy(bounds.min, tile.min)
-                    vec3.copy(bounds.max, tile.max)
-                  } else {
-                    Bounds.copy(bounds, model.bounds)
-                    Bounds.transformMat4(bounds, bounds, transform.worldToLocalMatrix)
-                  }
-                  encoder.addTile(
-                    model.url,
-                    bounds,
-                    vec3.subtract(tmpp, transform.position, center),
-                    transform.rotation,
-                    transform.lossyScale,
-                    flags,
-                  )
-                }
-                const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
-                if (fusedModels) {
-                  encoder.addFusedTiles(
-                    fusedModels.encoded,
-                    vec3.subtract(tmpp, transform.position, center),
-                    transform.rotation,
-                    transform.lossyScale,
-                  )
-                }
-              }
-              const fusedId = getUnusedName("fused")
-              applyEdit({selection: new Set([fusedId]), remove, add: {
-                [fusedId]: {
-                  order: getNextPageOrder(),
-                  transform: {parentId: getPageParentId(), localPosition: center},
-                  fusedModels: {encoded: encoder.finish()},
-                  selector: {hideFlags: EDITOR_HIDE_FLAG},
-                },
-              }})
-            },
-          },
-          explode: {
-            name: Value.constant("Explode"),
-            enabled: haveSelection,
-            action: () => {
-              const oldSelection = new Set(selection)
-              const matrix = mat4.create()
-              const add :SpaceConfig = {}
-              const remove = new Set<string>()
-              const newSelection = new Set<string>()
-              const parentId = getPageParentId()
-              let order = getNextPageOrder()
-              for (const id of oldSelection) {
-                addSubtreeToSet(remove, id)
-                const gameObject = gameEngine.gameObjects.require(id)
-                const transform = gameObject.transform
-                const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
-                if (fusedModels) {
-                  decodeFused(fusedModels.encoded, {
-                    visitTile: (url, bounds, position, rotation, scale, flags) => {
-                      mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
-                      mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
-                      const modelId = getUnusedName("tile", add)
-                      newSelection.add(modelId)
-                      add[modelId] = {
-                        order: order++,
-                        transform: {
-                          parentId,
-                          localPosition: mat4.getTranslation(vec3.create(), matrix),
-                          localRotation: mat4.getRotation(quat.create(), matrix),
-                          localScale: mat4.getScaling(vec3.create(), matrix),
-                        },
-                        model: {url},
-                        tile: {
-                          min: vec3.clone(bounds.min),
-                          max: vec3.clone(bounds.max),
-                          walkable: Boolean(flags & WALKABLE_FLAG),
-                        },
-                        selector: {hideFlags: EDITOR_HIDE_FLAG},
-                      }
-                    },
-                    visitFusedTiles: (source, position, rotation, scale) => {
-                      mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
-                      mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
-                      const fusedId = getUnusedName("fused", add)
-                      newSelection.add(fusedId)
-                      add[fusedId] = {
-                        order: order++,
-                        transform: {
-                          parentId,
-                          localPosition: mat4.getTranslation(vec3.create(), matrix),
-                          localRotation: mat4.getRotation(quat.create(), matrix),
-                          localScale: mat4.getScaling(vec3.create(), matrix),
-                        },
-                        fusedModels: {encoded: source},
-                        selector: {hideFlags: EDITOR_HIDE_FLAG},
-                      }
-                    },
-                  })
-                }
-              }
-              applyEdit({selection: newSelection, add, remove})
-            },
-          },
-          separator: {},
-          import: {
-            name: Value.constant("Import..."),
-            action: () => importConfig(config => pasteConfig(addSelectors(config), true)),
-          },
-          export: {
-            name: Value.constant("Export..."),
-            enabled: haveSelection,
-            action: () => exportConfig(getSelectedConfig(Bounds.create(), ALL_HIDE_FLAGS_MASK)),
-          }
-        }),
+        model: dataModel(selectionData, prefs.general.getProperty("catalog").map(catalog => {
+          let keys = Object.keys(selectionData)
+          if (!catalog) keys = keys.filter(key => key.toLowerCase().indexOf("catalog") === -1)
+          return keys
+        })),
       },
       object: {
         name: Value.constant("Object"),
@@ -1043,9 +1203,22 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       catalog: {
         name: Value.constant("Catalog"),
         key: Value.constant("catalog"),
-        rootModel: dataModel({}),
-        selectedKeys: Value.constant([]),
+        rootModel: catalogRoot.createElementsModel(),
+        selectedKeys: catalogSelection,
         updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
+          const node = catalogNodes.get(key as number)!
+          const oldParent = catalogNodes.get(node.parentId)!
+          const newParent = (parent === undefined)
+            ? catalogRoot
+            : catalogNodes.get(parent as number)!
+          if (oldParent === newParent) {
+            oldParent.moveChild(node.id, index)
+          } else {
+            oldParent.deleteChild(node.id)
+            newParent.insertChild(node.id, index)
+            node.parentId = newParent.id
+            newParent.expanded.update(true)
+          }
         },
       },
     }, prefs.general.getProperty<string>("catalog").map(catalog => {
