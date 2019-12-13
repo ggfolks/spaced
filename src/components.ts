@@ -10,9 +10,11 @@ import {
 } from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {Noop, NoopRemover, PMap} from "tfw/core/util"
-import {DEFAULT_LAYER_FLAG, GameObject, Hover, Tile, Transform} from "tfw/engine/game"
+import {
+  DEFAULT_LAYER_FLAG, DefaultTileBounds, GameObject, Hover, Tile, Transform,
+} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
-import {Camera, FusedModels, MeshRenderer, Model} from "tfw/engine/render"
+import {Camera, FusedModels} from "tfw/engine/render"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
@@ -76,20 +78,19 @@ export class Selector extends TypeScriptComponent {
     const tileBounds = Bounds.create()
     this._applyToGroupIds(id => {
       const gameObject = this.gameEngine.gameObjects.require(id)
-      const tile = gameObject.getComponent<Tile>("tile")
-      if (tile) {
-        vec3.copy(tileBounds.min, tile.min)
-        vec3.copy(tileBounds.max, tile.max)
+      const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
+      if (fusedModels) {
+        Bounds.union(result, result, fusedModels.bounds)
+      } else {
+        const tile = gameObject.getComponent<Tile>("tile")
+        if (tile) {
+          vec3.copy(tileBounds.min, tile.min)
+          vec3.copy(tileBounds.max, tile.max)
+        } else {
+          Bounds.copy(tileBounds, DefaultTileBounds)
+        }
         Bounds.transformMat4(tileBounds, tileBounds, gameObject.transform.localToWorldMatrix)
         Bounds.union(result, result, tileBounds)
-
-      } else {
-        const model = gameObject.getComponent<Model>("model")
-        if (model) Bounds.union(result, result, model.bounds)
-        const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
-        if (fusedModels) Bounds.union(result, result, fusedModels.bounds)
-        const meshRenderer = gameObject.getComponent<MeshRenderer>("meshRenderer")
-        if (meshRenderer) Bounds.union(result, result, meshRenderer.bounds)
       }
     })
     result.min[1] = gridY

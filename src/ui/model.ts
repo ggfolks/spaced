@@ -6,7 +6,7 @@ import {Disposable, Disposer, Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
   ALL_HIDE_FLAGS_MASK, DEFAULT_PAGE, NO_HIDE_FLAGS_MASK,
-  GameEngine, GameObject, GameObjectConfig, SpaceConfig, Tile,
+  DefaultTileBounds, GameEngine, GameObject, GameObjectConfig, SpaceConfig, Tile,
 } from "tfw/engine/game"
 import {Model as RenderModel, FusedModels} from "tfw/engine/render"
 import {WALKABLE_FLAG, FusedEncoder, JavaScript, decodeFused} from "tfw/engine/util"
@@ -856,8 +856,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
               vec3.copy(bounds.min, tile.min)
               vec3.copy(bounds.max, tile.max)
             } else {
-              Bounds.copy(bounds, model.bounds)
-              Bounds.transformMat4(bounds, bounds, transform.worldToLocalMatrix)
+              Bounds.copy(bounds, DefaultTileBounds)
             }
             encoder.addTile(
               model.url,
