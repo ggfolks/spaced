@@ -5,8 +5,8 @@ import {MutableSet} from "tfw/core/rcollect"
 import {Disposable, Disposer, Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
-  ALL_HIDE_FLAGS_MASK, DEFAULT_PAGE, NO_HIDE_FLAGS_MASK, GameEngine, GameObject,
-  GameObjectConfig, PrimitiveTypes, SpaceConfig, Tile,
+  ALL_HIDE_FLAGS_MASK, DEFAULT_PAGE, NO_HIDE_FLAGS_MASK,
+  GameEngine, GameObject, GameObjectConfig, SpaceConfig, Tile,
 } from "tfw/engine/game"
 import {Model as RenderModel, FusedModels} from "tfw/engine/render"
 import {WALKABLE_FLAG, FusedEncoder, JavaScript, decodeFused} from "tfw/engine/util"
@@ -66,6 +66,7 @@ interface CatalogNodeConfig {
 }
 
 const catalogNodes = new Map<number, CatalogNode>()
+const catalogSelection = MutableSet.local<number>()
 const catalogChanged = new Emitter<void>()
 const emitCatalogChanged = () => catalogChanged.emit()
 
@@ -117,7 +118,7 @@ class CatalogNode implements Disposable {
   addNewChild (objects :SpaceConfig) :number {
     const node = new CatalogNode()
     node.parentId = this.id
-    node.name.update("New Entry")
+    node.name.update("entry")
     node.objects.update(objects)
     this.insertChild(node.id, this.childIds.current.length)
     return node.id
@@ -145,17 +146,17 @@ class CatalogNode implements Disposable {
   }
 
   dispose () {
+    for (const childId of this.childIds.current) catalogNodes.get(childId)!.dispose()
+    catalogNodes.get(this.parentId)!.deleteChild(this.id)
+    catalogSelection.delete(this.id)
     catalogNodes.delete(this.id)
     this._disposer.dispose()
   }
 }
 
 const catalogRoot = new CatalogNode()
-const catalogSelection = MutableSet.local<number>()
 
 function clearCatalog () {
-  catalogSelection.clear()
-  catalogRoot.childIds.update([])
   for (const node of catalogNodes.values()) {
     if (node !== catalogRoot) node.dispose()
   }
@@ -178,7 +179,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   Value.join2(path, changed).onValue(([path, changed]) => {
     document.title = `${changed ? "*" : ""}${getPathName()} — Spaced`
   })
-  const haveSelection = selection.fold(false, (value, set) => set.size > 0)
+  const haveSelection = selection.sizeValue.map(Boolean)
   const selectionArray = selection.fold<string[]>([], (value, set) => Array.from(set))
   const clipboard = Mutable.local<SpaceConfig|undefined>(undefined)
   const expanded = MutableSet.local<string>()
@@ -560,8 +561,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   }
   catalogChanged.onEmit(() => {
     if (catalogTimeout !== undefined) window.clearTimeout(catalogTimeout)
-    catalogTimeout = window.setTimeout(maybeSaveCatalog, 15000)
+    catalogTimeout = window.setTimeout(maybeSaveCatalog, 5000)
   })
+
+  let confirmRemoveFromCatalog = Noop
 
   if (window.require) {
     const fs = window.require("fs")
@@ -668,6 +671,20 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         maybeSaveCatalog(() => electron.process.exit())
       }),
     }
+    confirmRemoveFromCatalog = async () => {
+      const result = await electron.dialog.showMessageBox(
+        electron.getCurrentWindow(),
+        {
+          type: "question",
+          buttons: ["Cancel", "Remove"],
+          defaultId: 1,
+          title: "Confirm Remove",
+          message: "Are you sure you want to remove this entry from the catalog?",
+        },
+      )
+      if (!result) return
+      for (const id of catalogSelection) catalogNodes.get(id)!.dispose()
+    }
     openModel = {
       open: {
         name: Value.constant("Open Space..."),
@@ -748,7 +765,17 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     }, haveSelection),
     copy: new Command(copySelected, haveSelection),
     paste: new Command(pasteFromClipboard, clipboard.map(Boolean)),
-    delete: new Command(removeSelected, haveSelection),
+    delete: new Command(
+      () => {
+        if (activeTree.current !== "catalog" || catalogSelection.size === 0) removeSelected()
+        else confirmRemoveFromCatalog()
+      },
+      Value
+        .join3(haveSelection, catalogSelection.sizeValue, activeTree)
+        .map(([haveSelection, catalogSelectionSize, activeTree]) => {
+          return haveSelection || (catalogSelectionSize > 0 && activeTree === "catalog")
+        }),
+    ),
     selectAll: () => {
       const set = new Set<string>()
       for (const rootId of gameEngine.rootIds.current) addSubtreeToSet(set, rootId)
@@ -1044,10 +1071,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
             name: Value.constant("Group"),
             action: () => createObject("group", {}),
           },
-          camera: {
-            name: Value.constant("Camera"),
-            action: () => createObject("camera", {camera: {}}),
-          },
           light: {
             name: Value.constant("Light"),
             action: () => createObject("light", {light: {}}),
@@ -1059,23 +1082,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           tile: {
             name: Value.constant("Tile"),
             action: () => createObject("tile", {model: {}, tile: {}}),
-          },
-          primitive: {
-            name: Value.constant("Primitive"),
-            submenu: Value.constant(true),
-            model: makeModel(
-              Value.constant(PrimitiveTypes),
-              type => ({
-                name: Value.constant(type),
-                action: () => createObject(
-                  type,
-                  {
-                    meshFilter: {meshConfig: {type}},
-                    meshRenderer: {materialConfig: {type: "standard"}},
-                  },
-                ),
-              }),
-            ),
           },
         }),
       },
@@ -1340,11 +1346,11 @@ const EditorObjects :SpaceConfig = {
 const AutomaticObjects :SpaceConfig = {
   ambient: {
     order: 2,
-    light: {},
+    light: {intensity: 2},
   },
   directional: {
     order: 3,
-    light: {lightType: "directional"},
+    light: {lightType: "directional", intensity: 2},
     transform: {localPosition: vec3.fromValues(1, 1, 1)},
   },
 }
