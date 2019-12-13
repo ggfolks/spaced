@@ -570,6 +570,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
 
   let confirmRemoveFromCatalog = Noop
 
+  activeTree.onChange(activeTree => {
+    if (activeTree === "objects") catalogSelection.clear()
+    else selection.clear()
+  })
+
   if (window.require) {
     const fs = window.require("fs")
     writeTo = (value, path, callback) => {
@@ -970,8 +975,8 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       name: Value.constant("Save to Catalog"),
       enabled: haveSelection,
       action: () => {
-        activeTree.update("catalog")
         const id = catalogRoot.addNewChild(getSelectedConfig(Bounds.create(), ALL_HIDE_FLAGS_MASK))
+        activeTree.update("catalog")
         catalogSelection.clear()
         catalogSelection.add(id)
       },
