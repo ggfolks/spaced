@@ -1,7 +1,7 @@
 import {refEquals} from "tfw/core/data"
 import {Bounds, dim2, mat4, quat, vec2, vec3} from "tfw/core/math"
 import {Emitter, Mutable, Value} from "tfw/core/react"
-import {MutableSet} from "tfw/core/rcollect"
+import {MutableMap, MutableSet} from "tfw/core/rcollect"
 import {Disposable, Disposer, Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
@@ -62,28 +62,25 @@ export let applyEdit :(edit :GameObjectEdit) => void = Noop
 interface CatalogNodeConfig {
   name :string
   objects :SpaceConfig
-  children :CatalogNodeConfig[]
+  children :PMap<CatalogNodeConfig>
 }
 
-const catalogNodes = new Map<number, CatalogNode>()
-const catalogSelection = MutableSet.local<number>()
+const catalogNodes = MutableMap.local<string, CatalogNode>()
+const catalogSelection = MutableSet.local<string>()
 const catalogChanged = new Emitter<void>()
 const emitCatalogChanged = () => catalogChanged.emit()
 
-let nextCatalogNodeId = 0
-
 class CatalogNode implements Disposable {
-  readonly id = nextCatalogNodeId++
-  parentId = 0
-  readonly name = Mutable.local("")
+  readonly name :Mutable<string>
   readonly objects = Mutable.local<SpaceConfig>({})
-  readonly childIds = Mutable.local<number[]>([])
+  readonly childIds = Mutable.local<string[]>([])
   readonly expanded = Mutable.local(false)
 
   private _disposer = new Disposer()
 
-  constructor () {
-    catalogNodes.set(this.id, this)
+  constructor (readonly id :string, public parentId :string) {
+    this.name = Mutable.local(id)
+    catalogNodes.set(id, this)
     this._disposer.add(this.name.onChange(emitCatalogChanged))
     this._disposer.add(this.objects.onChange(emitCatalogChanged))
     this._disposer.add(this.childIds.onChange(emitCatalogChanged))
@@ -100,43 +97,48 @@ class CatalogNode implements Disposable {
     })
   }
 
-  createElementsModel () :ElementsModel<number> {
+  createElementsModel () :ElementsModel<string> {
     return {
       keys: this.childIds,
-      resolve: childId => catalogNodes.get(childId)!.createModel(),
+      resolve: childId => catalogNodes.require(childId).createModel(),
     }
   }
 
   createConfig () :CatalogNodeConfig {
+    const children :PMap<CatalogNodeConfig> = {}
+    for (const childId of this.childIds.current) {
+      children[childId] = catalogNodes.require(childId).createConfig()
+    }
     return {
       name: this.name.current,
       objects: this.objects.current,
-      children: this.childIds.current.map(childId => catalogNodes.get(childId)!.createConfig()),
+      children,
     }
   }
 
-  addNewChild (objects :SpaceConfig) :number {
-    const node = new CatalogNode()
-    node.parentId = this.id
-    node.name.update("entry")
+  addNewChild (objects :SpaceConfig) :string {
+    const baseId = "entry"
+    let id = baseId
+    for (let ii = 2; catalogNodes.has(id); ii++) id = baseId + ii
+    const node = new CatalogNode(id, this.id)
     node.objects.update(objects)
-    this.insertChild(node.id, this.childIds.current.length)
-    return node.id
+    this.insertChild(id, this.childIds.current.length)
+    return id
   }
 
-  insertChild (id :number, index :number) {
+  insertChild (id :string, index :number) {
     const childIds = this.childIds.current.slice()
     childIds.splice(index, 0, id)
     this.childIds.update(childIds)
   }
 
-  deleteChild (id :number) {
+  deleteChild (id :string) {
     const childIds = this.childIds.current.slice()
     childIds.splice(childIds.indexOf(id), 1)
     this.childIds.update(childIds)
   }
 
-  moveChild (id :number, index :number) {
+  moveChild (id :string, index :number) {
     const oldIndex = this.childIds.current.indexOf(id)
     if (oldIndex === index) return
     const childIds = this.childIds.current.slice()
@@ -146,15 +148,15 @@ class CatalogNode implements Disposable {
   }
 
   dispose () {
-    for (const childId of this.childIds.current) catalogNodes.get(childId)!.dispose()
-    catalogNodes.get(this.parentId)!.deleteChild(this.id)
+    for (const childId of this.childIds.current) catalogNodes.require(childId).dispose()
+    catalogNodes.require(this.parentId).deleteChild(this.id)
     catalogSelection.delete(this.id)
     catalogNodes.delete(this.id)
     this._disposer.dispose()
   }
 }
 
-const catalogRoot = new CatalogNode()
+const catalogRoot = new CatalogNode("root", "")
 
 function clearCatalog () {
   for (const node of catalogNodes.values()) {
@@ -532,10 +534,12 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const loadCatalogNode = (node :CatalogNode, config :CatalogNodeConfig) => {
       node.name.update(config.name)
       node.objects.update(config.objects)
-      node.childIds.update(
-        config.children.map(config => loadCatalogNode(new CatalogNode(), config).id),
-      )
-      return node
+      const childIds :string[] = []
+      for (const id in config.children) {
+        loadCatalogNode(new CatalogNode(id, node.id), config.children[id])
+        childIds.push(id)
+      }
+      node.childIds.update(childIds)
     }
     let rootConfig :CatalogNodeConfig|undefined
     try {
@@ -683,7 +687,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         },
       )
       if (!result) return
-      for (const id of catalogSelection) catalogNodes.get(id)!.dispose()
+      for (const id of catalogSelection) catalogNodes.require(id).dispose()
     }
     openModel = {
       open: {
@@ -1211,11 +1215,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         rootModel: catalogRoot.createElementsModel(),
         selectedKeys: catalogSelection,
         updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
-          const node = catalogNodes.get(key as number)!
-          const oldParent = catalogNodes.get(node.parentId)!
+          const node = catalogNodes.require(key as string)
+          const oldParent = catalogNodes.require(node.parentId)
           const newParent = (parent === undefined)
             ? catalogRoot
-            : catalogNodes.get(parent as number)!
+            : catalogNodes.require(parent as string)
           if (oldParent === newParent) {
             oldParent.moveChild(node.id, index)
           } else {
