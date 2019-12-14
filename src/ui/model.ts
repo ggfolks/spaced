@@ -460,7 +460,8 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   }
   pasteFromCatalog = position => {
     for (const id of catalogSelection) {
-      pasteConfig(catalogNodes.require(id).objects.current, position, false)
+      const config = JavaScript.clone(catalogNodes.require(id).objects.current)
+      pasteConfig(addSelectors(config), position, false)
     }
   }
   const pasteFromClipboard = () => {
