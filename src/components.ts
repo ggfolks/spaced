@@ -480,6 +480,7 @@ export class CameraController extends TypeScriptComponent {
   }
 
   onPointerDrag (identifier :number, hover :Hover) {
+    if (this._catalogStamp) return
     if (this._selectRegion) {
       if (!this.getHoverXZPlaneIntersection(hover, tmpv)) return
       const transform = this._selectRegion.transform
