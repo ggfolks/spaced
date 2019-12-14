@@ -65,8 +65,8 @@ interface CatalogNodeConfig {
   children :PMap<CatalogNodeConfig>
 }
 
-const catalogNodes = MutableMap.local<string, CatalogNode>()
-const catalogSelection = MutableSet.local<string>()
+export const catalogNodes = MutableMap.local<string, CatalogNode>()
+export const catalogSelection = MutableSet.local<string>()
 const catalogChanged = new Emitter<void>()
 const emitCatalogChanged = () => catalogChanged.emit()
 
@@ -164,6 +164,10 @@ function clearCatalog () {
   }
 }
 
+export let pasteFromCatalog :(position :vec3) => void = Noop
+
+export const activeTree = Mutable.local<"objects"|"catalog">("objects")
+
 export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui :UI) {
   const getOrder = (id :string) => {
     if (id === DEFAULT_PAGE) return 0
@@ -182,6 +186,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     document.title = `${changed ? "*" : ""}${getPathName()} — Spaced`
   })
   const haveSelection = selection.sizeValue.map(Boolean)
+  const haveCatalogSelection = catalogSelection.sizeValue.map(Boolean)
   const selectionArray = selection.fold<string[]>([], (value, set) => Array.from(set))
   const clipboard = Mutable.local<SpaceConfig|undefined>(undefined)
   const expanded = MutableSet.local<string>()
@@ -281,7 +286,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   const showEditorObjects = prefs.general.getProperty("showEditorObjects") as Mutable<boolean>
   const showStats = prefs.general.getProperty("showStats") as Mutable<boolean>
   const showCoords = prefs.general.getProperty("showCoords") as Mutable<boolean>
-  const activeTree = Mutable.local("objects")
   const filterGameObjectKeys = (keys :string[]) => {
     if (showEditorObjects.current) return keys
     return keys.filter(key => !(gameEngine.gameObjects.require(key).hideFlags & EDITOR_HIDE_FLAG))
@@ -403,7 +407,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     for (const id of selection) addSubtreeToSet(remove, id)
     applyEdit({selection: new Set(), remove})
   }
-  const pasteConfig = (config :SpaceConfig, center :boolean, bounds? :Bounds) => {
+  const pasteConfig = (config :SpaceConfig, position :vec3, select = true) => {
     const add :SpaceConfig = {}
     const newIds = new Map<string, string>()
     for (const id in config) {
@@ -435,19 +439,17 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const selection = new Set<string>()
     const pageParentId = getPageParentId()
     let nextPageOrder = getNextPageOrder()
-    const newCenter = getPointerWorldPosition(vec3.create(), center)
-    if (bounds) maybeGetSnapCenter(newCenter, bounds)
     for (const id in config) {
       const newId = newIds.get(id)!
-      selection.add(newId)
+      if (select) selection.add(newId)
       const newConfig = replaceIds(config[id])
       if (!(newConfig.transform && newConfig.transform.parentId)) {
         if (!newConfig.transform) newConfig.transform = {}
         if (newConfig.transform.localPosition) {
           newConfig.transform.localPosition =
-            vec3.add(vec3.create(), newConfig.transform.localPosition, newCenter)
+            vec3.add(vec3.create(), newConfig.transform.localPosition, position)
         } else {
-          newConfig.transform.localPosition = vec3.clone(newCenter)
+          newConfig.transform.localPosition = vec3.clone(position)
         }
         newConfig.transform.parentId = pageParentId
         newConfig.order = nextPageOrder++
@@ -456,7 +458,16 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     }
     applyEdit({selection, add})
   }
-  const pasteFromClipboard = () => pasteConfig(clipboard.current!, false, clipboardBounds)
+  pasteFromCatalog = position => {
+    for (const id of catalogSelection) {
+      pasteConfig(catalogNodes.require(id).objects.current, position, false)
+    }
+  }
+  const pasteFromClipboard = () => {
+    const position = getPointerWorldPosition(vec3.create())
+    maybeGetSnapCenter(position, clipboardBounds)
+    pasteConfig(clipboard.current!, position)
+  }
   function getCategoryModel (category :CategoryNode) :ElementsModel<string> {
     return mapModel(category.children.keysValue, category.children, (value, key) => {
       if (value.current instanceof CategoryNode) return {
@@ -776,14 +787,12 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     paste: new Command(pasteFromClipboard, clipboard.map(Boolean)),
     delete: new Command(
       () => {
-        if (activeTree.current !== "catalog" || catalogSelection.size === 0) removeSelected()
-        else confirmRemoveFromCatalog()
+        if (haveCatalogSelection.current) confirmRemoveFromCatalog()
+        else removeSelected()
       },
       Value
-        .join3(haveSelection, catalogSelection.sizeValue, activeTree)
-        .map(([haveSelection, catalogSelectionSize, activeTree]) => {
-          return haveSelection || (catalogSelectionSize > 0 && activeTree === "catalog")
-        }),
+        .join2(haveSelection, haveCatalogSelection)
+        .map(([haveSelection, haveCatalogSelection]) => haveSelection || haveCatalogSelection),
     ),
     selectAll: () => {
       const set = new Set<string>()
@@ -963,7 +972,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     separator: {},
     import: {
       name: Value.constant("Import..."),
-      action: () => importConfig(config => pasteConfig(addSelectors(config), true)),
+      action: () => importConfig(config => {
+        const position = getPointerWorldPosition(vec3.create(), true)
+        pasteConfig(addSelectors(config), position)
+      }),
     },
     export: {
       name: Value.constant("Export..."),

@@ -9,19 +9,21 @@ import {
   Bounds, Plane, Ray, clamp, quat, toDegree, toRadian, vec3, vec3zero, vec3unitZ,
 } from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
-import {Noop, NoopRemover, PMap} from "tfw/core/util"
+import {Noop, NoopRemover, PMap, Remover} from "tfw/core/util"
 import {
-  DEFAULT_LAYER_FLAG, DefaultTileBounds, GameObject, Hover, Tile, Transform,
+  DEFAULT_LAYER_FLAG, DefaultTileBounds, GameEngine, GameObject, Hover, Tile, Transform,
 } from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
 import {Camera, FusedModels} from "tfw/engine/render"
+import {JavaScript} from "tfw/engine/util"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
 
 import {
   CAMERA_LAYER_FLAG, EDITOR_HIDE_FLAG, NONINTERACTIVE_LAYER_FLAG, OUTLINE_LAYER,
-  SpaceEditConfig, applyEdit, selection,
+  SpaceEditConfig, activeTree, applyEdit, catalogNodes,
+  catalogSelection, pasteFromCatalog, selection,
 } from "./ui/model"
 
 let outlineCount = 0
@@ -68,34 +70,7 @@ export class Selector extends TypeScriptComponent {
   }
 
   getGroupBounds (result = Bounds.create()) :Bounds {
-    let gridY = 0
-    const activeCamera = this.gameEngine.renderEngine.activeCameras[0]
-    if (activeCamera) {
-      const controller = activeCamera.requireComponent<CameraController>("cameraController")
-      gridY = controller.target[1]
-    }
-    Bounds.empty(result)
-    const tileBounds = Bounds.create()
-    this._applyToGroupIds(id => {
-      const gameObject = this.gameEngine.gameObjects.require(id)
-      const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
-      if (fusedModels) {
-        Bounds.union(result, result, fusedModels.bounds)
-      } else {
-        const tile = gameObject.getComponent<Tile>("tile")
-        if (tile) {
-          vec3.copy(tileBounds.min, tile.min)
-          vec3.copy(tileBounds.max, tile.max)
-        } else {
-          Bounds.copy(tileBounds, DefaultTileBounds)
-        }
-        Bounds.transformMat4(tileBounds, tileBounds, gameObject.transform.localToWorldMatrix)
-        Bounds.union(result, result, tileBounds)
-      }
-    })
-    result.min[1] = gridY
-    result.max[1] = gridY
-    return result
+    return getGroupBounds(this.gameEngine, op => this._applyToGroupIds(op), result)
   }
 
   onPointerDown (identifier :number, hover :Hover) {
@@ -359,6 +334,9 @@ export class CameraController extends TypeScriptComponent {
   private _selectRegion? :GameObject
   private _selectStartPosition = vec3.create()
 
+  private _catalogSelectionRemover? :Remover
+  private _catalogStamp? :GameObject
+
   getHoverXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
     vec3.copy(tmpr.origin, this.transform.position)
     vec3.subtract(tmpr.direction, hover.worldPosition, tmpr.origin)
@@ -408,14 +386,73 @@ export class CameraController extends TypeScriptComponent {
         }),
     )
     this._disposer.add(
-      Value.join(controlKeyState, shiftKeyState).onValue(([control, shift]) => {
-        this.requireComponent<Camera>("camera").eventMask =
-          CAMERA_LAYER_FLAG | (control && shift ? 0 : DEFAULT_LAYER_FLAG)
-      }),
+      Value
+        .join3(controlKeyState, shiftKeyState, activeTree)
+        .onValue(([control, shift, activeTree]) => {
+          this.requireComponent<Camera>("camera").eventMask =
+            CAMERA_LAYER_FLAG |
+            (control && shift || activeTree === "catalog" ? 0 : DEFAULT_LAYER_FLAG)
+        }),
     )
   }
 
+  onPointerEnter () {
+    this._catalogSelectionRemover = catalogSelection.onValue(catalogSelection => {
+      this._clearCatalogStamp()
+      if (catalogSelection.size === 0) return
+      this._catalogStamp = this.gameEngine.createGameObject("catalogStamp", {
+        layerFlags: NONINTERACTIVE_LAYER_FLAG,
+        hideFlags: EDITOR_HIDE_FLAG,
+      })
+      for (const id of catalogSelection) {
+        const configs = JavaScript.clone(catalogNodes.require(id).objects.current)
+        for (const id in configs) {
+          const config = configs[id]
+          config.layerFlags = NONINTERACTIVE_LAYER_FLAG
+          config.hideFlags = EDITOR_HIDE_FLAG
+          config.transform.parentId = this._catalogStamp.id
+          if (config.model) config.model.opacity = 0.5
+          else if (config.fusedModels) config.fusedModels.opacity = 0.5
+        }
+        this.gameEngine.createGameObjects(configs)
+      }
+    })
+  }
+
+  onPointerOver (identifier :number, hover :Hover) {
+    const catalogStamp = this._catalogStamp
+    if (!catalogStamp) return
+    const bounds = getGroupBounds(this.gameEngine, op => {
+      catalogStamp.transform.childIds.current.forEach(op)
+    })
+    const localPosition = catalogStamp.transform.localPosition
+    this.getHoverXZPlaneIntersection(hover, localPosition)
+    maybeGetSnapCenter(localPosition, bounds)
+  }
+
+  onPointerExit () {
+    if (this._catalogSelectionRemover) {
+      this._catalogSelectionRemover()
+      this._catalogSelectionRemover = undefined
+    }
+    this._clearCatalogStamp()
+  }
+
+  private _clearCatalogStamp () {
+    if (this._catalogStamp) {
+      for (let ii = this._catalogStamp.transform.childCount - 1; ii >= 0; ii--) {
+        this._catalogStamp.transform.getChild(ii).gameObject.dispose()
+      }
+      this._catalogStamp.dispose()
+      this._catalogStamp = undefined
+    }
+  }
+
   onPointerDown (identifier :number, hover :Hover) {
+    if (this._catalogStamp) {
+      pasteFromCatalog(this._catalogStamp.transform.localPosition)
+      return
+    }
     const mouse = this.gameEngine.ctx.hand!.mouse
     if (mouse.getButtonState(0).current && shiftKeyState.current) {
       selection.clear()
@@ -525,3 +562,38 @@ export class CameraController extends TypeScriptComponent {
   }
 }
 registerConfigurableType("component", undefined, "cameraController", CameraController)
+
+function getGroupBounds (
+  gameEngine :GameEngine,
+  applyToIds :(op :(id :string) => void) => void,
+  result = Bounds.create(),
+) :Bounds {
+  let gridY = 0
+  const activeCamera = gameEngine.renderEngine.activeCameras[0]
+  if (activeCamera) {
+    const controller = activeCamera.requireComponent<CameraController>("cameraController")
+    gridY = controller.target[1]
+  }
+  Bounds.empty(result)
+  const tileBounds = Bounds.create()
+  applyToIds(id => {
+    const gameObject = gameEngine.gameObjects.require(id)
+    const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
+    if (fusedModels) {
+      Bounds.union(result, result, fusedModels.bounds)
+    } else {
+      const tile = gameObject.getComponent<Tile>("tile")
+      if (tile) {
+        vec3.copy(tileBounds.min, tile.min)
+        vec3.copy(tileBounds.max, tile.max)
+      } else {
+        Bounds.copy(tileBounds, DefaultTileBounds)
+      }
+      Bounds.transformMat4(tileBounds, tileBounds, gameObject.transform.localToWorldMatrix)
+      Bounds.union(result, result, tileBounds)
+    }
+  })
+  result.min[1] = gridY
+  result.max[1] = gridY
+  return result
+}
