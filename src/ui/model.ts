@@ -521,7 +521,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   ]
   let writeTo :(value :any, path :string, callback? :() => void) => void = Noop
   const saveTo = (path :string) => writeTo(gameEngine.createConfig(), path)
-  let readFrom :(path :string, onLoad :(config :SpaceConfig) => void) => void = Noop
+  let readFrom :(path :string, onLoad :(value :any) => void) => void = Noop
   const loadFrom = (path :string) => readFrom(path, loadConfig)
   let importConfig = (onLoad :(config :SpaceConfig) => void) => {
     const input = document.createElement("input")
@@ -547,52 +547,12 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     // TODO: call revokeObjectURL when finished with download
   }
 
-  prefs.general.getProperty<string>("catalog").onValue(async url => {
-    clearCatalog()
-    if (!url) return
-    const loadCatalogNode = (node :CatalogNode, config :CatalogNodeConfig) => {
-      node.name.update(config.name)
-      node.objects.update(config.objects)
-      const childIds :string[] = []
-      for (const id in config.children) {
-        loadCatalogNode(new CatalogNode(id, node.id), config.children[id])
-        childIds.push(id)
-      }
-      node.childIds.update(childIds)
-    }
-    let rootConfig :CatalogNodeConfig|undefined
-    try {
-      rootConfig = await JavaScript.loadUncached(url) as CatalogNodeConfig
-    } catch (error) {
-      // ignore; assume we haven't saved the catalog yet
-    }
-    if (rootConfig) loadCatalogNode(catalogRoot, rootConfig)
-  })
-
-  let catalogTimeout :number|undefined
-  const maybeSaveCatalog = (callback? :() => void) => {
-    if (catalogTimeout !== undefined) {
-      window.clearTimeout(catalogTimeout)
-      catalogTimeout = undefined
-      const url = prefs.general.catalog
-      if (url) {
-        writeTo(catalogRoot.createConfig(), prefs.general.normalizedRoot + url, callback)
-        return
-      }
-    }
-    if (callback) callback()
-  }
-  catalogChanged.onEmit(() => {
-    if (catalogTimeout !== undefined) window.clearTimeout(catalogTimeout)
-    catalogTimeout = window.setTimeout(maybeSaveCatalog, 5000)
-  })
-
-  let confirmRemoveFromCatalog = Noop
-
   activeTree.onChange(activeTree => {
     if (activeTree === "objects") catalogSelection.clear()
     else selection.clear()
   })
+
+  let confirmRemoveFromCatalog = Noop
 
   if (window.require) {
     const fs = window.require("fs")
@@ -605,7 +565,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     readFrom = (path, onLoad) => {
       fs.readFile(path, "utf8", (error :Error|undefined, data :string) => {
         if (error) console.warn(error)
-        else onLoad(JavaScript.parse(data) as SpaceConfig)
+        else onLoad(JavaScript.parse(data))
       })
     }
     let lastPath = ""
@@ -699,6 +659,41 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         maybeSaveCatalog(() => electron.process.exit())
       }),
     }
+
+    prefs.general.getProperty<string>("catalogFile").onValue(file => {
+      clearCatalog()
+      if (!file) return
+      const loadCatalogNode = (node :CatalogNode, config :CatalogNodeConfig) => {
+        node.name.update(config.name)
+        node.objects.update(config.objects)
+        const childIds :string[] = []
+        for (const id in config.children) {
+          loadCatalogNode(new CatalogNode(id, node.id), config.children[id])
+          childIds.push(id)
+        }
+        node.childIds.update(childIds)
+      }
+      readFrom(file, rootConfig => loadCatalogNode(catalogRoot, rootConfig))
+    })
+
+    let catalogTimeout :number|undefined
+    const maybeSaveCatalog = (callback? :() => void) => {
+      if (catalogTimeout !== undefined) {
+        window.clearTimeout(catalogTimeout)
+        catalogTimeout = undefined
+        const file = prefs.general.catalogFile
+        if (file) {
+          writeTo(catalogRoot.createConfig(), file, callback)
+          return
+        }
+      }
+      if (callback) callback()
+    }
+    catalogChanged.onEmit(() => {
+      if (catalogTimeout !== undefined) window.clearTimeout(catalogTimeout)
+      catalogTimeout = window.setTimeout(maybeSaveCatalog, 5000)
+    })
+
     confirmRemoveFromCatalog = async () => {
       const result = await electron.dialog.showMessageBox(
         electron.getCurrentWindow(),
@@ -707,7 +702,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           buttons: ["Cancel", "Remove"],
           defaultId: 1,
           title: "Confirm Remove",
-          message: "Are you sure you want to remove this entry from the catalog?",
+          message: "Are you sure you want to remove this entry/these entries from the catalog?",
         },
       )
       if (!result) return
@@ -1086,7 +1081,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       },
       selection: {
         name: Value.constant("Selection"),
-        model: dataModel(selectionData, prefs.general.getProperty("catalog").map(catalog => {
+        model: dataModel(selectionData, prefs.general.getProperty("catalogFile").map(catalog => {
           let keys = Object.keys(selectionData)
           if (!catalog) keys = keys.filter(key => key.toLowerCase().indexOf("catalog") === -1)
           return keys
@@ -1255,7 +1250,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           }
         },
       },
-    }, prefs.general.getProperty<string>("catalog").map(catalog => {
+    }, prefs.general.getProperty<string>("catalogFile").map(catalog => {
       const keys = ["objects"]
       if (catalog) keys.push("catalog")
       return keys

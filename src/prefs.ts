@@ -30,7 +30,7 @@ class GeneralPrefs extends PrefsCategory {
   readonly title = "General"
 
   @property("directory") rootDirectory = ""
-  @property("url") catalog = ""
+  @property("file") catalogFile = ""
   @property("boolean", {editable: false}) showStats = false
   @property("boolean", {editable: false}) showEditorObjects = false
   @property("boolean", {editable: false}) showCoords = true
@@ -107,5 +107,23 @@ Property.setConfigCreator("directory", (model, editable) => {
       {defaultPath: value.current, properties: ["openDirectory"]},
     )
     if (result.filePaths.length > 0) value.update(result.filePaths[0])
+  })
+})
+
+Property.setConfigCreator("file", (model, editable) => {
+  if (!window.require) return {type: "spacer", width: 0, height: 0}
+  const value = model.resolve<Mutable<string>>("value")
+  return Property.createEllipsisConfig(model, editable, async () => {
+    const result = await electron.dialog.showSaveDialog(
+      electron.getCurrentWindow(),
+      {
+        defaultPath: value.current || "untitled.catalog.js",
+        filters: [
+          {name: "Catalogs", extensions: ["catalog.js"]},
+          {name: "All Files", extensions: ["*"]},
+        ],
+      },
+    )
+    if (result.filePath) value.update(result.filePath)
   })
 })

@@ -34,10 +34,10 @@ select ranges of objects.  Drag objects to reorder or reparent them.  Click anyw
 view aside from an object to deselect.
 
 #### Catalog tab
-The Catalog tab shows the entries in the currently selected catalog.  To select (or create) a
-catalog, open the Preferences dialog from the Edit menu and either press the ⋮ button to select
-an existing catalog or type in the path of a new catalog to create (relative to the root directory).
-When no catalog is configured, the Catalog tab will be invisible.
+The Catalog tab shows the entries in the currently selected catalog.  To select or create a
+catalog, open the Preferences dialog from the Edit menu and press the ⋮ button next to the
+catalogFile entry, then either select an existing catalog or enter the name/path of a new one. When
+no catalog is configured, the Catalog tab will be invisible.
 
 To save selections to the catalog, select them (with the Objects tab active) and select Save to
 Catalog from the Selection menu.  This will create and select a new entry at the top level of the
