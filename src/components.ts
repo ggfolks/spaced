@@ -334,7 +334,7 @@ export class CameraController extends TypeScriptComponent {
   private _selectRegion? :GameObject
   private _selectStartPosition = vec3.create()
 
-  private _catalogSelectionRemover? :Remover
+  private _pointerEnterRemover? :Remover
   private _catalogStamp? :GameObject
   private _catalogStampAngle = 0
 
@@ -398,9 +398,9 @@ export class CameraController extends TypeScriptComponent {
   }
 
   onPointerEnter () {
-    this._catalogSelectionRemover = catalogSelection.onValue(catalogSelection => {
+    const updater = () => {
       this._clearCatalogStamp()
-      if (catalogSelection.size === 0) return
+      if (catalogSelection.size === 0 || controlKeyState.current) return
       this._catalogStamp = this.gameEngine.createGameObject("catalogStamp", {
         layerFlags: NONINTERACTIVE_LAYER_FLAG,
         hideFlags: EDITOR_HIDE_FLAG,
@@ -417,7 +417,14 @@ export class CameraController extends TypeScriptComponent {
         }
         this.gameEngine.createGameObjects(configs)
       }
-    })
+    }
+    let catalogSelectionRemover = catalogSelection.onChange(updater)
+    let controlKeyStateRemover = controlKeyState.onChange(updater)
+    this._pointerEnterRemover = () => {
+      catalogSelectionRemover()
+      controlKeyStateRemover()
+    }
+    updater()
   }
 
   onPointerOver (identifier :number, hover :Hover) {
@@ -437,9 +444,9 @@ export class CameraController extends TypeScriptComponent {
   }
 
   onPointerExit () {
-    if (this._catalogSelectionRemover) {
-      this._catalogSelectionRemover()
-      this._catalogSelectionRemover = undefined
+    if (this._pointerEnterRemover) {
+      this._pointerEnterRemover()
+      this._pointerEnterRemover = undefined
     }
     this._clearCatalogStamp()
   }

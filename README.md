@@ -51,7 +51,8 @@ itself is saved.
 When a catalog entry is selected, a translucent view of the entry will appear under the mouse
 cursor in 3D view.  Use the mouse wheel to adjust the rotation of the entry.  Hold shift for fine
 positioning (otherwise, the position will be snapped to the grid and the rotation to multiples of
-90 degrees).  Press the mouse button to "stamp" out a copy of the entry into the space.
+90 degrees).  Press the mouse button to "stamp" out a copy of the entry into the space.  Hold the
+control key to temporarily switch to camera mode.
 
 ### 3D view
 The 3D view shows the current page with a reference grid.  Selected objects will appear outlined
