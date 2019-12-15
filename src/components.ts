@@ -336,6 +336,7 @@ export class CameraController extends TypeScriptComponent {
 
   private _catalogSelectionRemover? :Remover
   private _catalogStamp? :GameObject
+  private _catalogStampAngle = 0
 
   getHoverXZPlaneIntersection (hover :Hover, result :vec3) :boolean {
     vec3.copy(tmpr.origin, this.transform.position)
@@ -422,6 +423,11 @@ export class CameraController extends TypeScriptComponent {
   onPointerOver (identifier :number, hover :Hover) {
     const catalogStamp = this._catalogStamp
     if (!catalogStamp) return
+
+    let angle = this._catalogStampAngle
+    if (!shiftKeyState.current) angle = 90 * Math.round(angle / 90)
+    quat.fromEuler(catalogStamp.transform.localRotation, 0, angle, 0)
+
     const bounds = getGroupBounds(this.gameEngine, op => {
       catalogStamp.transform.childIds.current.forEach(op)
     })
@@ -445,12 +451,16 @@ export class CameraController extends TypeScriptComponent {
       }
       this._catalogStamp.dispose()
       this._catalogStamp = undefined
+      this._catalogStampAngle = 0
     }
   }
 
   onPointerDown (identifier :number, hover :Hover) {
     if (this._catalogStamp) {
-      pasteFromCatalog(this._catalogStamp.transform.localPosition)
+      pasteFromCatalog(
+        this._catalogStamp.transform.localPosition,
+        this._catalogStamp.transform.localRotation,
+      )
       return
     }
     const mouse = this.gameEngine.ctx.hand!.mouse
@@ -544,7 +554,11 @@ export class CameraController extends TypeScriptComponent {
   }
 
   onWheel (identifier :number, hover :Hover, delta :vec3) {
-    this._addToDistance(0.5 * Math.sign(delta[1]))
+    if (this._catalogStamp) {
+      this._catalogStampAngle += Math.sign(delta[1]) * (shiftKeyState.current ? 1 : 90)
+    } else {
+      this._addToDistance(0.5 * Math.sign(delta[1]))
+    }
   }
 
   update (clock :Clock) {

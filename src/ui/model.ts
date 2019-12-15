@@ -1,5 +1,5 @@
 import {refEquals} from "tfw/core/data"
-import {Bounds, dim2, mat4, quat, vec2, vec3} from "tfw/core/math"
+import {Bounds, dim2, mat4, quat, quatIdentity, vec2, vec3} from "tfw/core/math"
 import {Emitter, Mutable, Value} from "tfw/core/react"
 import {MutableMap, MutableSet} from "tfw/core/rcollect"
 import {Disposable, Disposer, Noop, PMap, getValue} from "tfw/core/util"
@@ -164,7 +164,7 @@ function clearCatalog () {
   }
 }
 
-export let pasteFromCatalog :(position :vec3) => void = Noop
+export let pasteFromCatalog :(position :vec3, rotation :quat) => void = Noop
 
 export const activeTree = Mutable.local<"objects"|"catalog">("objects")
 
@@ -407,7 +407,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     for (const id of selection) addSubtreeToSet(remove, id)
     applyEdit({selection: new Set(), remove})
   }
-  const pasteConfig = (config :SpaceConfig, position :vec3, select = true) => {
+  const pasteConfig = (config :SpaceConfig, position :vec3, rotation :quat, select = true) => {
     const add :SpaceConfig = {}
     const newIds = new Map<string, string>()
     for (const id in config) {
@@ -445,11 +445,18 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       const newConfig = replaceIds(config[id])
       if (!(newConfig.transform && newConfig.transform.parentId)) {
         if (!newConfig.transform) newConfig.transform = {}
-        if (newConfig.transform.localPosition) {
-          newConfig.transform.localPosition =
-            vec3.add(vec3.create(), newConfig.transform.localPosition, position)
+        const localPosition = newConfig.transform.localPosition
+        if (localPosition) {
+          const offset = vec3.transformQuat(vec3.create(), localPosition, rotation)
+          newConfig.transform.localPosition = vec3.add(offset, offset, position)
         } else {
           newConfig.transform.localPosition = vec3.clone(position)
+        }
+        const localRotation = newConfig.transform.localRotation
+        if (localRotation) {
+          newConfig.transform.localRotation = quat.multiply(quat.create(), rotation, localRotation)
+        } else {
+          newConfig.transform.localRotation = quat.clone(rotation)
         }
         newConfig.transform.parentId = pageParentId
         newConfig.order = nextPageOrder++
@@ -458,16 +465,16 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     }
     applyEdit({selection, add})
   }
-  pasteFromCatalog = position => {
+  pasteFromCatalog = (position, rotation) => {
     for (const id of catalogSelection) {
       const config = JavaScript.clone(catalogNodes.require(id).objects.current)
-      pasteConfig(addSelectors(config), position, false)
+      pasteConfig(addSelectors(config), position, rotation, false)
     }
   }
   const pasteFromClipboard = () => {
     const position = getPointerWorldPosition(vec3.create())
     maybeGetSnapCenter(position, clipboardBounds)
-    pasteConfig(clipboard.current!, position)
+    pasteConfig(clipboard.current!, position, quatIdentity)
   }
   function getCategoryModel (category :CategoryNode) :ElementsModel<string> {
     return mapModel(category.children.keysValue, category.children, (value, key) => {
@@ -975,7 +982,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       name: Value.constant("Import..."),
       action: () => importConfig(config => {
         const position = getPointerWorldPosition(vec3.create(), true)
-        pasteConfig(addSelectors(config), position)
+        pasteConfig(addSelectors(config), position, quatIdentity)
       }),
     },
     export: {
