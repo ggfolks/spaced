@@ -21,7 +21,10 @@ pages by dragging their tabs; as you drag, the white line indicates the new posi
 Delete pages by clicking the × button next to the page name.
 
 ### Tree view
-The tree view shows the names of all objects on the current page, arranged by transform hierarchy.
+The tree view has two tabs: objects and catalog.
+
+#### Objects tab
+The Objects tab shows the names of all objects on the current page, arranged by transform hierarchy.
 As with the pages, you can double-click on an object name to change it.  Names need not be unique.
 Objects with children will have an expansion arrow (▾ if expanded, ▸ if not) that you can click to
 show/hide the node's children.
@@ -29,6 +32,26 @@ show/hide the node's children.
 Click objects to select them.  Control-click to select multiple objects at a time.  Shift-click to
 select ranges of objects.  Drag objects to reorder or reparent them.  Click anywhere on the tree
 view aside from an object to deselect.
+
+#### Catalog tab
+The Catalog tab shows the entries in the currently selected catalog.  To select (or create) a
+catalog, open the Preferences dialog from the Edit menu and either press the ⋮ button to select
+an existing catalog or type in the path of a new catalog to create (relative to the root directory).
+When no catalog is configured, the Catalog tab will be invisible.
+
+To save selections to the catalog, select them (with the Objects tab active) and select Save to
+Catalog from the Selection menu.  This will create and select a new entry at the top level of the
+catalog.  As with the Objects view, entries may be renamed by double-clicking and
+reparented/reordered by dragging and dropping.  Similarly, Delete deletes entries (with
+confirmation).  However, undo/redo and cut/copy/paste do not apply to the catalog.
+
+The catalog is saved automatically, five seconds after the last edit to it and whenever the space
+itself is saved.
+
+When a catalog entry is selected, a translucent view of the entry will appear under the mouse
+cursor in 3D view.  Use the mouse wheel to adjust the rotation of the entry.  Hold shift for fine
+positioning (otherwise, the position will be snapped to the grid and the rotation to multiples of
+90 degrees).  Press the mouse button to "stamp" out a copy of the entry into the space.
 
 ### 3D view
 The 3D view shows the current page with a reference grid.  Selected objects will appear outlined
