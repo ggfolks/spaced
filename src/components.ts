@@ -361,10 +361,6 @@ export class CameraController extends TypeScriptComponent {
     this.distance = 10
   }
 
-  raise (amount :number) {
-    this.target[1] += amount
-  }
-
   awake () {
     const offset = vec3.create()
     this._disposer.add(

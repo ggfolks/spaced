@@ -503,11 +503,23 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   )
   const coords = Mutable.local("")
   const coordPos = vec3.create()
+  const formatCoord = (value :number) => {
+    const base = String(Math.round(value * 100) / 100)
+    let idx = base.indexOf(".")
+    return (idx === -1)
+      ? base + ".00"
+      : idx === base.length - 2
+      ? base + "0"
+      : base
+  }
   gameEngine.addUpdatable({
     update: () => {
       getPointerWorldPosition(coordPos)
-      vec3.round(coordPos, coordPos)
-      coords.update(`${coordPos[0]} ${coordPos[1]} ${coordPos[2]}`)
+      coords.update(
+        formatCoord(coordPos[0]) + " " +
+        formatCoord(coordPos[1]) + " " +
+        formatCoord(coordPos[2])
+      )
     },
   })
 
@@ -804,11 +816,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     },
     raiseGrid: () => {
       const activeCamera = gameEngine.renderEngine.activeCameras[0]
-      if (activeCamera) activeCamera.gameObject.cameraController.raise(1)
+      if (activeCamera) activeCamera.gameObject.cameraController.target[1] += 0.25
     },
     lowerGrid: () => {
       const activeCamera = gameEngine.renderEngine.activeCameras[0]
-      if (activeCamera) activeCamera.gameObject.cameraController.raise(-1)
+      if (activeCamera) activeCamera.gameObject.cameraController.target[1] -= 0.25
     },
   }
 
