@@ -12,6 +12,7 @@ export const UIStyles = customStyles({
   fonts: {
     componentHeader: {family, size: 16},
     componentBody: {family, size: 16},
+    gameObjectProperty: {family, size: 16},
     componentProperty: {family, size: 14},
     addComponent: {family, size: 16},
     stats: {family, size: 16},
@@ -79,6 +80,10 @@ export const UITheme = customTheme({
   },
   rightColumn: {
     box: {border: "$rightColumn"},
+  },
+  gameObjectProperties: {
+    box: {padding: [5, 5, 0, 5]},
+    label: {font: "$gameObjectProperty", fill: "$white"},
   },
   component: {
     box: {margin: 5},

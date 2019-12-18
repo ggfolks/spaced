@@ -250,6 +250,18 @@ export function createUIConfig (minSize :Value<dim2>) :Root.Config {
                         offPolicy: "stretch",
                         contents: [
                           {
+                            type: "box",
+                            scopeId: "gameObjectProperties",
+                            contents: {
+                              type: "propertyView",
+                              gap: 5,
+                              editable: Value.constant(true),
+                              offPolicy: "stretch",
+                              model: "gameObjectPropertiesModel",
+                            },
+                            style: {halign: "stretch"},
+                          },
+                          {
                             type: "dragVList",
                             element: {
                               type: "box",

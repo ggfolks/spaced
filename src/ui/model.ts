@@ -1,7 +1,7 @@
 import {refEquals} from "tfw/core/data"
 import {Bounds, dim2, mat4, quat, quatIdentity, vec2, vec3} from "tfw/core/math"
 import {Emitter, Mutable, Value} from "tfw/core/react"
-import {MutableMap, MutableSet} from "tfw/core/rcollect"
+import {MutableMap, MutableSet, RMap} from "tfw/core/rcollect"
 import {Disposable, Disposer, Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
@@ -1268,6 +1268,25 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       return keys
     })),
     activeTree,
+    gameObjectPropertiesModel: Property.makeModel(
+      RMap.fromValue(selectionArray, selection => {
+        if (selection.length === 0) return RMap.empty()
+        return gameEngine.gameObjects.require(selection[0]).propertiesMeta
+      }),
+      (propertyName, metaValue) => {
+        const property = selectionArray.switchMap(selection => {
+          if (selection.length === 0) return Value.constant<unknown>(undefined)
+          return gameEngine.gameObjects.require(selection[0]).getProperty(propertyName)
+        })
+        if (metaValue.current.constraints.readonly) return property
+        return Mutable.deriveMutable(
+          dispatch => property.onChange(dispatch),
+          () => property.current,
+          value => applyToSelection({[propertyName]: value}),
+          refEquals,
+        )
+      }
+    ),
     componentsModel: {
       keys: selectionArray.switchMap(selection => {
         if (selection.length === 0) return Value.constant<string[]>([])
