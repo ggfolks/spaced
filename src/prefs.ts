@@ -2,27 +2,8 @@ import {ResourceLoader} from "tfw/core/assets"
 import {Mutable} from "tfw/core/react"
 import {GameEngine} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
-import {JavaScript} from "tfw/engine/util"
-import {TypeScriptConfigurable, registerConfigurableType} from "tfw/engine/typescript/game"
+import {PrefsCategory, registerConfigurableType} from "tfw/engine/typescript/game"
 import {Property} from "tfw/ui/property"
-
-abstract class PrefsCategory extends TypeScriptConfigurable {
-  abstract readonly title :string
-
-  init () {
-    super.init()
-    // read the initial values from local storage, update on change
-    for (const [property, meta] of this.propertiesMeta) {
-      if (meta.constraints.readonly || meta.constraints.transient) continue
-      const storageKey = this.type + "/" + property
-      const value = localStorage.getItem(storageKey)
-      if (value !== null) (this as any)[property] = this.gameEngine.loader.eval(value)
-      this.getProperty(property).onChange(
-        value => localStorage.setItem(storageKey, JavaScript.stringify(value)),
-      )
-    }
-  }
-}
 
 const electron = window.require && window.require("electron").remote
 
