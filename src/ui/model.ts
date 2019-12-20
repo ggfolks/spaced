@@ -913,6 +913,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         const fusedId = getUnusedName("fused")
         applyEdit({selection: new Set([fusedId]), remove, add: {
           [fusedId]: {
+            isStatic: true,
             order: getNextPageOrder(),
             transform: {parentId: getPageParentId(), localPosition: center},
             fusedModels: {encoded: encoder.finish()},
@@ -946,6 +947,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                 newSelection.add(modelId)
                 add[modelId] = {
                   order: order++,
+                  isStatic: true,
                   transform: {
                     parentId,
                     localPosition: mat4.getTranslation(vec3.create(), matrix),
@@ -968,6 +970,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                 newSelection.add(fusedId)
                 add[fusedId] = {
                   order: order++,
+                  isStatic: true,
                   transform: {
                     parentId,
                     localPosition: mat4.getTranslation(vec3.create(), matrix),
@@ -1116,7 +1119,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           },
           tile: {
             name: Value.constant("Tile"),
-            action: () => createObject("tile", {model: {}, tile: {}}),
+            action: () => createObject("tile", {isStatic: true, model: {}, tile: {}}),
           },
         }),
       },
