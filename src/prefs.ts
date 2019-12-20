@@ -1,4 +1,4 @@
-import {setBaseUrl} from "tfw/core/assets"
+import {ResourceLoader} from "tfw/core/assets"
 import {Mutable} from "tfw/core/react"
 import {GameEngine} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
@@ -16,7 +16,7 @@ abstract class PrefsCategory extends TypeScriptConfigurable {
       if (meta.constraints.readonly || meta.constraints.transient) continue
       const storageKey = this.type + "/" + property
       const value = localStorage.getItem(storageKey)
-      if (value !== null) (this as any)[property] = JavaScript.parse(value)
+      if (value !== null) (this as any)[property] = this.gameEngine.loader.eval(value)
       this.getProperty(property).onChange(
         value => localStorage.setItem(storageKey, JavaScript.stringify(value)),
       )
@@ -47,12 +47,12 @@ class GeneralPrefs extends PrefsCategory {
     // when we have a root directory, we store URLs relative to it
     this.getProperty<string>("rootDirectory").onValue(rootDirectory => {
       if (!rootDirectory) {
-        setBaseUrl(location.origin + location.pathname)
+        this.gameEngine.loader.setBaseUrl(ResourceLoader.getDefaultBaseUrl())
         Property.setCustomUrlSelector(undefined)
         return
       }
       const normalizedRoot = this.normalizedRoot
-      setBaseUrl("file:" + normalizedRoot)
+      this.gameEngine.loader.setBaseUrl("file:" + normalizedRoot)
       let lastPath = ""
       Property.setCustomUrlSelector(async value => {
         const currentPath = value.current

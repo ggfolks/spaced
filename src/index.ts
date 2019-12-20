@@ -1,4 +1,4 @@
-import {loadImage} from "tfw/core/assets"
+import {ResourceLoader, FetchResourceLoader} from "tfw/core/assets"
 import {Loop} from "tfw/core/clock"
 import {rect} from "tfw/core/math"
 import {Mutable} from "tfw/core/react"
@@ -21,13 +21,14 @@ const rootSize = windowSize(window)
 const disposer = new Disposer()
 document.body.addEventListener("unload", () => disposer.dispose())
 
+const loader = new FetchResourceLoader(ResourceLoader.getDefaultBaseUrl())
 const gameBounds = Mutable.local(rect.create())
-const gameEngine = new TypeScriptGameEngine(root, gameBounds)
+const gameEngine = new TypeScriptGameEngine(root, gameBounds, loader)
 disposer.add(gameEngine)
 disposer.add(new ThreeRenderEngine(gameEngine))
 disposer.add(new CannonPhysicsEngine(gameEngine))
 
-const ui = new UI(UITheme, UIStyles, {resolve: loadImage})
+const ui = new UI(UITheme, UIStyles, loader)
 const uiRoot = ui.createRoot(createUIConfig(rootSize), createUIModel(rootSize, gameEngine, ui))
 const host = new HTMLHost(root, false)
 host.addRoot(uiRoot)

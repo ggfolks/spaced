@@ -173,6 +173,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     if (id === DEFAULT_PAGE) return 0
     return gameEngine.gameObjects.require(id).order
   }
+  const loader = gameEngine.loader
   const models = new Map<ModelKey, Model>()
   const pageEditor = createGameObjectEditor(gameEngine, models)
   const path = Mutable.local("")
@@ -543,7 +544,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
       if (!input.files || input.files.length === 0) return
       const reader = new FileReader()
       reader.onload = () => {
-        onLoad(JavaScript.parse(reader.result as string) as SpaceConfig)
+        onLoad(loader.eval(reader.result as string) as SpaceConfig)
       }
       reader.readAsText(input.files[0])
     })
@@ -577,7 +578,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     readFrom = (path, onLoad) => {
       fs.readFile(path, "utf8", (error :Error|undefined, data :string) => {
         if (error) console.warn(error)
-        else onLoad(JavaScript.parse(data))
+        else onLoad(loader.eval(data))
       })
     }
     let lastPath = ""
