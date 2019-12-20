@@ -374,7 +374,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     const gameObject = gameEngine.gameObjects.require(rootId)
     config[rootId] = gameObject.createConfig(mask)
     for (const childId of gameObject.transform.childIds.current) {
-      addSubtreeToConfig(config, childId)
+      addSubtreeToConfig(config, childId, mask)
     }
   }
   const clipboardBounds = Bounds.create()
