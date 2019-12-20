@@ -816,11 +816,11 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     },
     raiseGrid: () => {
       const activeCamera = gameEngine.renderEngine.activeCameras[0]
-      if (activeCamera) activeCamera.gameObject.cameraController.target[1] += 0.25
+      if (activeCamera) activeCamera.gameObject.cameraController.target[1] += 1
     },
     lowerGrid: () => {
       const activeCamera = gameEngine.renderEngine.activeCameras[0]
-      if (activeCamera) activeCamera.gameObject.cameraController.target[1] -= 0.25
+      if (activeCamera) activeCamera.gameObject.cameraController.target[1] -= 1
     },
   }
 
