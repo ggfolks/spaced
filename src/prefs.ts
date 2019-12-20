@@ -1,5 +1,5 @@
-import {ResourceLoader} from "tfw/core/assets"
 import {Mutable} from "tfw/core/react"
+import {ResourceLoader} from "tfw/asset/loader"
 import {GameEngine} from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
 import {PrefsCategory, registerConfigurableType} from "tfw/engine/typescript/game"
