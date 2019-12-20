@@ -48,6 +48,7 @@ export class Selector extends TypeScriptComponent {
 
   private _outlineObject? :Object3D
   private _intersectionToCenter? :vec3
+  private _pointerMoved = false
 
   awake () {
     this._disposer.add(
@@ -87,6 +88,7 @@ export class Selector extends TypeScriptComponent {
       const bounds = this.getGroupBounds()
       const center = Bounds.getCenter(vec3.create(), bounds)
       this._intersectionToCenter = vec3.subtract(intersection, center, intersection)
+      this._pointerMoved = false
     } else {
       this._intersectionToCenter = undefined
     }
@@ -99,6 +101,8 @@ export class Selector extends TypeScriptComponent {
     const bounds = this.getGroupBounds()
     const oldCenter = Bounds.getCenter(vec3.create(), bounds)
     const newCenter = vec3.add(intersection, intersection, this._intersectionToCenter)
+    if (!this._pointerMoved && vec3.equals(oldCenter, newCenter)) return
+    this._pointerMoved = true
     maybeGetSnapCenter(newCenter, bounds)
     this._createAndApplyEdit(id => {
       const gameObject = this.gameEngine.gameObjects.require(id)
