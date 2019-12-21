@@ -19,6 +19,7 @@ import {JavaScript} from "tfw/engine/util"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
+import {keyEvents} from "tfw/input/react"
 
 import {
   CAMERA_LAYER_FLAG, EDITOR_HIDE_FLAG, NONINTERACTIVE_LAYER_FLAG, OUTLINE_LAYER,
@@ -37,8 +38,14 @@ postScene.autoUpdate = false
 let postMaterial :ShaderMaterial|undefined
 
 // get these before we need them so that the Keyboard instance is created and listening
+const altKeyState = Keyboard.instance.getKeyState(18)
 const controlKeyState = Keyboard.instance.getKeyState(17)
 const shiftKeyState = Keyboard.instance.getKeyState(16)
+
+// prevent alt from bringing up browser menu bar
+keyEvents("keydown").onEmit(event => {
+  if (event.keyCode === 18) event.preventDefault()
+})
 
 const DummyMaterial = new MeshBasicMaterial()
 const EmptyGroup = {start: 0, count: 0}
@@ -388,11 +395,11 @@ export class CameraController extends TypeScriptComponent {
     )
     this._disposer.add(
       Value
-        .join3(controlKeyState, shiftKeyState, activeTree)
-        .onValue(([control, shift, activeTree]) => {
+        .join2(Value.join(altKeyState, controlKeyState, shiftKeyState), activeTree)
+        .onValue(([[alt, control, shift], activeTree]) => {
           this.requireComponent<Camera>("camera").eventMask =
             CAMERA_LAYER_FLAG |
-            (control && shift || activeTree === "catalog" ? 0 : DEFAULT_LAYER_FLAG)
+            (alt || control && shift || activeTree === "catalog" ? 0 : DEFAULT_LAYER_FLAG)
         }),
     )
   }
@@ -400,7 +407,7 @@ export class CameraController extends TypeScriptComponent {
   onPointerEnter () {
     const updater = () => {
       this._clearCatalogStamp()
-      if (catalogSelection.size === 0 || controlKeyState.current) return
+      if (catalogSelection.size === 0 || altKeyState.current || controlKeyState.current) return
       this._catalogStamp = this.gameEngine.createGameObject("catalogStamp", {
         layerFlags: NONINTERACTIVE_LAYER_FLAG,
         hideFlags: EDITOR_HIDE_FLAG,
@@ -419,10 +426,10 @@ export class CameraController extends TypeScriptComponent {
       }
     }
     let catalogSelectionRemover = catalogSelection.onChange(updater)
-    let controlKeyStateRemover = controlKeyState.onChange(updater)
+    let keyStateRemover = Value.join(altKeyState, controlKeyState).onChange(updater)
     this._pointerEnterRemover = () => {
       catalogSelectionRemover()
-      controlKeyStateRemover()
+      keyStateRemover()
     }
     updater()
   }
@@ -463,6 +470,7 @@ export class CameraController extends TypeScriptComponent {
   }
 
   onPointerDown (identifier :number, hover :Hover) {
+    if (altKeyState.current) return
     if (this._catalogStamp) {
       pasteFromCatalog(
         this._catalogStamp.transform.localPosition,

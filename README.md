@@ -69,7 +69,8 @@ it (at which point the outline will turn white).  To select multiple objects at 
 hold down the control key.  To select a group of objects by dragging out a rectangle on the
 reference grid, hold down the shift key, press, and drag.  Note that if you start the rectangle on
 an object, this will move the object rather than initiating a group select.  To avoid this, you can
-hold down control *and* shift to avoid interacting with the object under the cursor.
+hold down control *and* shift to avoid interacting with the object under the cursor.  You can also
+hold down alt to avoid selecting objects and instead manipulate the camera.
 
 In general, the editor snaps positions unless you hold down the shift key.  For example, you can
 press and drag an object to move it around, and by default it will align to grid coordinates.  For
