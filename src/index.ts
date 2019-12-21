@@ -3,7 +3,7 @@ import {rect} from "tfw/core/math"
 import {Mutable} from "tfw/core/react"
 import {windowSize} from "tfw/core/ui"
 import {Disposer} from "tfw/core/util"
-import {ResourceLoader, FetchResourceLoader} from "tfw/asset/loader"
+import {ResourceLoader} from "tfw/asset/loader"
 import {TypeScriptGameEngine} from "tfw/engine/typescript/game"
 import {ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {CannonPhysicsEngine} from "tfw/engine/typescript/cannon/physics"
@@ -21,7 +21,7 @@ const rootSize = windowSize(window)
 const disposer = new Disposer()
 document.body.addEventListener("unload", () => disposer.dispose())
 
-const loader = new FetchResourceLoader(ResourceLoader.getDefaultBaseUrl())
+const loader = ResourceLoader.fetchLoader(ResourceLoader.getDefaultBaseUrl())
 const gameBounds = Mutable.local(rect.create())
 const gameEngine = new TypeScriptGameEngine(root, gameBounds, loader)
 disposer.add(gameEngine)
