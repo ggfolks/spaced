@@ -884,7 +884,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
           const model = gameObject.getComponent<RenderModel>("model")
           if (model) {
             const tile = gameObject.getComponent<Tile>("tile")
-            let flags = 0
+            let flags = model.flags
             if (tile) {
               if (tile.walkable) flags |= WALKABLE_FLAG
               vec3.copy(bounds.min, tile.min)
@@ -955,7 +955,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
                     localRotation: mat4.getRotation(quat.create(), matrix),
                     localScale: mat4.getScaling(vec3.create(), matrix),
                   },
-                  model: {url},
+                  model: {url, flags},
                   tile: {
                     min: vec3.clone(bounds.min),
                     max: vec3.clone(bounds.max),
