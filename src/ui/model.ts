@@ -892,14 +892,10 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
             } else {
               Bounds.copy(bounds, DefaultTileBounds)
             }
-            encoder.addTile(
-              model.url,
-              bounds,
-              vec3.subtract(tmpp, transform.position, center),
-              transform.rotation,
-              transform.lossyScale,
-              flags,
-            )
+            vec3.subtract(tmpp, transform.position, center)
+            for (const url of model.urls) {
+              encoder.addTile(url, bounds, tmpp, transform.rotation, transform.lossyScale, flags)
+            }
           }
           const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
           if (fusedModels) {
