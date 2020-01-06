@@ -541,9 +541,6 @@ export class CameraController extends TypeScriptComponent {
       this.elevation = clamp(this.elevation + hover.viewMovement[1] * 180, -90, 90)
 
     } else if (mouse.getButtonState(1).current) {
-      this._addToDistance(hover.viewMovement[1] * -20)
-
-    } else {
       vec3.transformQuat(
         tmpv,
         vec3.set(tmpv, -hover.viewMovement[0], 0, hover.viewMovement[1]),
