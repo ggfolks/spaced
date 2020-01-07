@@ -11,11 +11,12 @@ import {
 import {Mutable, Value} from "tfw/core/react"
 import {Noop, NoopRemover, PMap, Remover} from "tfw/core/util"
 import {
-  DEFAULT_LAYER_FLAG, DefaultTileBounds, GameEngine, GameObject, Hover, Tile, Transform,
+  DEFAULT_LAYER_FLAG, DefaultTileBounds, ExplicitGeometry,
+  GameEngine, GameObject, Hover, MeshFilter, Tile, Transform,
 } from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
 import {Camera, FusedModels} from "tfw/engine/render"
-import {JavaScript} from "tfw/engine/util"
+import {JavaScript, NavGrid} from "tfw/engine/util"
 import {TypeScriptComponent, registerConfigurableType} from "tfw/engine/typescript/game"
 import {ThreeObjectComponent, ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {Keyboard} from "tfw/input/keyboard"
@@ -624,3 +625,38 @@ function getGroupBounds (
   result.max[1] = gridY
   return result
 }
+
+const CellIndices = [0, 2, 3, 0, 3, 1]
+
+export class WalkableAreas extends TypeScriptComponent {
+  readonly navGrid = new NavGrid()
+
+  private _geometryValid = true
+
+  init () {
+    super.init()
+    this.navGrid.changed.onEmit(() => this._geometryValid = false)
+  }
+
+  update () {
+    if (this._geometryValid) return
+    const vertices = new Float32Array(this.navGrid.walkableCellCount * 4 * 3)
+    const triangles = new Uint32Array(this.navGrid.walkableCellCount * 2 * 3)
+    let vidx = 0, tidx = 0
+    let vertexCount = 0
+    this.navGrid.visitWalkableCells(occupancy => {
+      for (let ii = 0; ii < 4; ii++) {
+        vertices[vidx++] = occupancy.x * 0.5 + (ii & 1 ? 0.5 : 0)
+        vertices[vidx++] = occupancy.y + 0.5
+        vertices[vidx++] = occupancy.z * 0.5 + (ii & 2 ? 0.5 : 0)
+      }
+      for (const index of CellIndices) triangles[tidx++] = vertexCount + index
+      vertexCount += 4
+    })
+    const geometry = this.requireComponent<MeshFilter>("meshFilter").mesh as ExplicitGeometry
+    geometry.vertices = vertices
+    geometry.triangles = triangles
+    this._geometryValid = true
+  }
+}
+registerConfigurableType("component", undefined, "walkableAreas", WalkableAreas)
