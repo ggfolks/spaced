@@ -58,6 +58,34 @@ export class Selector extends TypeScriptComponent {
   private _intersectionToCenter? :vec3
   private _pointerMoved = false
 
+  private _navGrid? :NavGrid
+  private _navGridBounds? :Bounds
+  private _navGridWalkable? :boolean
+  private _navGridEncoded? :Uint8Array
+
+  init () {
+    super.init()
+    this._disposer.add(() => this._removeFromNavGrid())
+    Value
+      .join2(
+        this.gameObject.components.getValue("tile"),
+        this.gameObject.components.getValue("fusedModels"),
+      )
+      .switchMap(([tile, fusedModels]) => {
+        const properties :Value<any>[] = []
+        if (tile) {
+          properties.push(
+            tile.getProperty("min"),
+            tile.getProperty("max"),
+            tile.getProperty("walkable"),
+          )
+        }
+        if (fusedModels) properties.push(fusedModels.getProperty("encoded"))
+        return Value.join(...properties)
+      })
+      .onValue(() => this._updateInNavGrid())
+  }
+
   awake () {
     this._disposer.add(
       Value
@@ -157,6 +185,14 @@ export class Selector extends TypeScriptComponent {
         },
       }
     })
+  }
+
+  onTransformParentChanged () {
+    this._updateInNavGrid()
+  }
+
+  onTransformChanged () {
+    this._updateInNavGrid()
   }
 
   private _createAndApplyEdit (createForId :(id :string) => PMap<any>) {
@@ -287,6 +323,41 @@ export class Selector extends TypeScriptComponent {
     } else {
       applyToSubtree(this.gameObject.id)
     }
+  }
+
+  private _updateInNavGrid () {
+    this._removeFromNavGrid()
+
+    const walkableAreasObject = this.gameEngine.findWithTag("walkableAreas")
+    if (!walkableAreasObject) return
+    this._navGrid = walkableAreasObject.requireComponent<WalkableAreas>("walkableAreas").navGrid
+
+    const tile = this.getComponent<Tile>("tile")
+    if (tile) {
+      this._navGridBounds = Bounds.create()
+      vec3.copy(this._navGridBounds.min, tile.min)
+      vec3.copy(this._navGridBounds.max, tile.max)
+      Bounds.transformMat4(
+        this._navGridBounds,
+        this._navGridBounds,
+        this.transform.localToWorldMatrix,
+      )
+      this._navGrid.insert(this._navGridBounds, this._navGridWalkable = tile.walkable)
+    }
+  }
+
+  private _removeFromNavGrid () {
+    if (!this._navGrid) return
+    if (this._navGridBounds && this._navGridWalkable !== undefined) {
+      this._navGrid.delete(this._navGridBounds, this._navGridWalkable)
+      this._navGridBounds = undefined
+      this._navGridWalkable = undefined
+    }
+    if (this._navGridEncoded) {
+
+      this._navGridEncoded = undefined
+    }
+    this._navGrid = undefined
   }
 }
 registerConfigurableType("component", undefined, "selector", Selector)

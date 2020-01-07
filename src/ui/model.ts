@@ -1395,6 +1395,7 @@ const EditorObjects :SpaceConfig = {
     },
   },
   editorWalkableAreas: {
+    tag: "walkableAreas",
     order: 2,
     layerFlags: NONINTERACTIVE_LAYER_FLAG,
     hideFlags: EDITOR_HIDE_FLAG,
