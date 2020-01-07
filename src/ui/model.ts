@@ -285,8 +285,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
   }
   const prefs = new Preferences(gameEngine)
   const showEditorObjects = prefs.general.getProperty("showEditorObjects") as Mutable<boolean>
-  const showStats = prefs.general.getProperty("showStats") as Mutable<boolean>
-  const showCoords = prefs.general.getProperty("showCoords") as Mutable<boolean>
   const filterGameObjectKeys = (keys :string[]) => {
     if (showEditorObjects.current) return keys
     return keys.filter(key => !(gameEngine.gameObjects.require(key).hideFlags & EDITOR_HIDE_FLAG))
@@ -498,10 +496,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     })
   }
   const componentTypesModel = getCategoryModel(gameEngine.getConfigurableTypeRoot("component"))
-  const statsModel = makeModel(
-    gameEngine.renderEngine.stats,
-    stat => ({stat: Value.constant(stat)}),
-  )
   const coords = Mutable.local("")
   const coordPos = vec3.create()
   const formatCoord = (value :number) => {
@@ -829,6 +823,7 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     showEditorObjects: "Editor Objects",
     showStats: "Stats",
     showCoords: "Coords",
+    showWalkableAreas: "Show Walkable Areas",
   }
   const viewData :ModelData = {
     raiseGrid: {
@@ -1131,9 +1126,12 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
         let model = models.get(key)
         if (!model) {
           const commonModelData :ModelData = {
-            showStats,
-            statsModel,
-            showCoords,
+            showStats: prefs.general.getProperty("showStats"),
+            statsModel: makeModel(
+              gameEngine.renderEngine.stats,
+              stat => ({stat: Value.constant(stat)}),
+            ),
+            showCoords: prefs.general.getProperty("showCoords"),
             coords,
           }
           if (key === DEFAULT_PAGE) {
