@@ -481,7 +481,8 @@ export class CameraController extends TypeScriptComponent {
           const config = configs[id]
           config.layerFlags = NONINTERACTIVE_LAYER_FLAG
           config.hideFlags = EDITOR_HIDE_FLAG
-          config.transform.parentId = this._catalogStamp.id
+          if (!config.transform) config.transform = {}
+          if (!config.transform.parentId) config.transform.parentId = this._catalogStamp.id
           if (config.model) config.model.opacity = 0.5
           else if (config.fusedModels) config.fusedModels.opacity = 0.5
         }
@@ -523,10 +524,7 @@ export class CameraController extends TypeScriptComponent {
 
   private _clearCatalogStamp () {
     if (this._catalogStamp) {
-      for (let ii = this._catalogStamp.transform.childCount - 1; ii >= 0; ii--) {
-        this._catalogStamp.transform.getChild(ii).gameObject.dispose()
-      }
-      this._catalogStamp.dispose()
+      this._catalogStamp.disposeHierarchy()
       this._catalogStamp = undefined
       this._catalogStampAngle = 0
     }
