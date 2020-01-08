@@ -6,7 +6,7 @@ import {
 import {Clock} from "tfw/core/clock"
 import {Color} from "tfw/core/color"
 import {
-  Bounds, Plane, Ray, clamp, quat, toDegree, toRadian, vec3, vec3zero, vec3unitZ,
+  Bounds, Plane, Ray, clamp, mat4, quat, toDegree, toRadian, vec3, vec3zero, vec3unitZ,
 } from "tfw/core/math"
 import {Mutable, Value} from "tfw/core/react"
 import {Noop, NoopRemover, PMap, Remover} from "tfw/core/util"
@@ -64,6 +64,7 @@ export class Selector extends TypeScriptComponent {
   private _navGridBounds? :Bounds
   private _navGridWalkable? :boolean
   private _navGridEncoded? :Uint8Array
+  private _navGridMatrix? :mat4
 
   init () {
     super.init()
@@ -346,6 +347,13 @@ export class Selector extends TypeScriptComponent {
       )
       this._navGrid.insert(this._navGridBounds, this._navGridWalkable = tile.walkable)
     }
+    const fusedModels = this.getComponent<FusedModels>("fusedModels")
+    if (fusedModels) {
+      this._navGrid.insertFused(
+        this._navGridEncoded = fusedModels.encoded,
+        this._navGridMatrix = mat4.clone(this.transform.localToWorldMatrix),
+      )
+    }
   }
 
   private _removeFromNavGrid () {
@@ -355,9 +363,10 @@ export class Selector extends TypeScriptComponent {
       this._navGridBounds = undefined
       this._navGridWalkable = undefined
     }
-    if (this._navGridEncoded) {
-
+    if (this._navGridEncoded && this._navGridMatrix) {
+      this._navGrid.deleteFused(this._navGridEncoded, this._navGridMatrix)
       this._navGridEncoded = undefined
+      this._navGridMatrix = undefined
     }
     this._navGrid = undefined
   }
@@ -715,7 +724,7 @@ export class WalkableAreas extends TypeScriptComponent {
   }
 
   update () {
-    if (this._geometryValid) return
+    if (this._geometryValid || !this.gameObject.layerFlags) return
     const vertices = new Float32Array(this.navGrid.walkableCellCount * 4 * 3)
     const triangles = new Uint32Array(this.navGrid.walkableCellCount * 2 * 3)
     let vidx = 0, tidx = 0
