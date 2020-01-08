@@ -10,7 +10,7 @@ import {
   DefaultTileBounds, GameEngine, GameObject, GameObjectConfig, SpaceConfig, Tile,
 } from "tfw/engine/game"
 import {Model as RenderModel, FusedModels} from "tfw/engine/render"
-import {WALKABLE_FLAG, FusedEncoder, JavaScript, decodeFused} from "tfw/engine/util"
+import {NON_TILE_FLAG, WALKABLE_FLAG, FusedEncoder, JavaScript, decodeFused} from "tfw/engine/util"
 import {MOUSE_ID} from "tfw/input/hand"
 import {getCurrentEditNumber} from "tfw/ui/element"
 import {
@@ -883,22 +883,6 @@ export function createUIModel (
         for (const id of remove) {
           const gameObject = gameEngine.gameObjects.require(id)
           const transform = gameObject.transform
-          const model = gameObject.getComponent<RenderModel>("model")
-          if (model) {
-            const tile = gameObject.getComponent<Tile>("tile")
-            let flags = model.flags
-            if (tile) {
-              if (tile.walkable) flags |= WALKABLE_FLAG
-              vec3.copy(bounds.min, tile.min)
-              vec3.copy(bounds.max, tile.max)
-            } else {
-              Bounds.copy(bounds, DefaultTileBounds)
-            }
-            vec3.subtract(tmpp, transform.position, center)
-            for (const url of model.urls) {
-              encoder.addTile(url, bounds, tmpp, transform.rotation, transform.lossyScale, flags)
-            }
-          }
           const fusedModels = gameObject.getComponent<FusedModels>("fusedModels")
           if (fusedModels) {
             encoder.addFusedTiles(
@@ -907,6 +891,24 @@ export function createUIModel (
               transform.rotation,
               transform.lossyScale,
             )
+          } else {
+            const model = gameObject.getComponent<RenderModel>("model")
+            if (model) {
+              let flags = model.flags
+              const tile = gameObject.getComponent<Tile>("tile")
+              if (tile) {
+                if (tile.walkable) flags |= WALKABLE_FLAG
+                vec3.copy(bounds.min, tile.min)
+                vec3.copy(bounds.max, tile.max)
+              } else {
+                flags |= NON_TILE_FLAG
+                Bounds.copy(bounds, DefaultTileBounds)
+              }
+              vec3.subtract(tmpp, transform.position, center)
+              for (const url of model.urls) {
+                encoder.addTile(url, bounds, tmpp, transform.rotation, transform.lossyScale, flags)
+              }
+            }
           }
         }
         const fusedId = getUnusedName("fused")
@@ -944,6 +946,14 @@ export function createUIModel (
                 mat4.multiply(matrix, transform.localToWorldMatrix, matrix)
                 const modelId = getUnusedName("tile", add)
                 newSelection.add(modelId)
+                const tileConfig :GameObjectConfig = {}
+                if (!(flags & NON_TILE_FLAG)) {
+                  tileConfig.tile = {
+                    min: vec3.clone(bounds.min),
+                    max: vec3.clone(bounds.max),
+                    walkable: Boolean(flags & WALKABLE_FLAG),
+                  }
+                }
                 add[modelId] = {
                   order: order++,
                   isStatic: true,
@@ -954,11 +964,7 @@ export function createUIModel (
                     localScale: mat4.getScaling(vec3.create(), matrix),
                   },
                   model: {url, flags},
-                  tile: {
-                    min: vec3.clone(bounds.min),
-                    max: vec3.clone(bounds.max),
-                    walkable: Boolean(flags & WALKABLE_FLAG),
-                  },
+                  ...tileConfig,
                   selector: {hideFlags: EDITOR_HIDE_FLAG},
                 }
               },
