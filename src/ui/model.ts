@@ -811,7 +811,9 @@ export function createUIModel (
     ),
     selectAll: () => {
       const set = new Set<string>()
-      for (const rootId of gameEngine.rootIds.current) addSubtreeToSet(set, rootId)
+      for (const rootId of filterGameObjectKeys(gameEngine.rootIds.current)) {
+        addSubtreeToSet(set, rootId)
+      }
       setIdSet(selection, set)
     },
     raiseGrid: () => {
