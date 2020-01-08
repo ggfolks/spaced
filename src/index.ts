@@ -10,6 +10,8 @@ import {CannonPhysicsEngine} from "tfw/engine/typescript/cannon/physics"
 import {HTMLHost} from "tfw/ui/element"
 import {UI} from "tfw/ui/ui"
 
+import {Preferences} from "./prefs"
+
 import {createUIConfig} from "./ui/config"
 import {createUIModel} from "./ui/model"
 import {UIStyles, UITheme} from "./ui/theme"
@@ -28,8 +30,13 @@ disposer.add(gameEngine)
 disposer.add(new ThreeRenderEngine(gameEngine))
 disposer.add(new CannonPhysicsEngine(gameEngine))
 
+export const prefs = new Preferences(gameEngine)
+
 const ui = new UI(UITheme, UIStyles, loader)
-const uiRoot = ui.createRoot(createUIConfig(rootSize), createUIModel(rootSize, gameEngine, ui))
+const uiRoot = ui.createRoot(
+  createUIConfig(rootSize),
+  createUIModel(rootSize, gameEngine, prefs, ui),
+)
 const host = new HTMLHost(root, false)
 host.addRoot(uiRoot)
 

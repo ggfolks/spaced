@@ -169,7 +169,12 @@ export let pasteFromCatalog :(position :vec3, rotation :quat) => void = Noop
 
 export const activeTree = Mutable.local<"objects"|"catalog">("objects")
 
-export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui :UI) {
+export function createUIModel (
+  minSize :Value<dim2>,
+  gameEngine :GameEngine,
+  prefs :Preferences,
+  ui :UI,
+) {
   const getOrder = (id :string) => {
     if (id === DEFAULT_PAGE) return 0
     return gameEngine.gameObjects.require(id).order
@@ -284,7 +289,6 @@ export function createUIModel (minSize :Value<dim2>, gameEngine :GameEngine, ui 
     for (const id of selection) edit[id] = perObjectEdit
     applyEdit({edit})
   }
-  const prefs = new Preferences(gameEngine)
   const showEditorObjects = prefs.general.getProperty("showEditorObjects") as Mutable<boolean>
   const filterGameObjectKeys = (keys :string[]) => {
     if (showEditorObjects.current) return keys

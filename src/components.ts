@@ -28,6 +28,8 @@ import {
   catalogSelection, pasteFromCatalog, selection,
 } from "./ui/model"
 
+import {prefs} from "./index"
+
 let outlineCount = 0
 let outlineRemover = NoopRemover
 
@@ -706,6 +708,9 @@ export class WalkableAreas extends TypeScriptComponent {
 
   init () {
     super.init()
+    prefs.general.getProperty<boolean>("showWalkableAreas").onValue(show => {
+      this.gameObject.layerFlags = show ? NONINTERACTIVE_LAYER_FLAG : 0
+    })
     this.navGrid.changed.onEmit(() => this._geometryValid = false)
   }
 
