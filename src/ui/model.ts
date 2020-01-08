@@ -828,7 +828,7 @@ export function createUIModel (
     showEditorObjects: "Editor Objects",
     showStats: "Stats",
     showCoords: "Coords",
-    showWalkableAreas: "Show Walkable Areas",
+    showWalkableAreas: "Walkable Areas",
   }
   const viewData :ModelData = {
     raiseGrid: {
