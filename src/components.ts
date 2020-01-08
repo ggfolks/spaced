@@ -60,15 +60,11 @@ export class Selector extends TypeScriptComponent {
   private _intersectionToCenter? :vec3
   private _pointerMoved = false
 
-  private _navGrid? :NavGrid
-  private _navGridBounds? :Bounds
-  private _navGridWalkable? :boolean
-  private _navGridEncoded? :Uint8Array
-  private _navGridMatrix? :mat4
+  private _navGridRemover :Remover = NoopRemover
 
   init () {
     super.init()
-    this._disposer.add(() => this._removeFromNavGrid())
+    this._disposer.add(() => this._navGridRemover())
     Value
       .join2(
         this.gameObject.components.getValue("tile"),
@@ -329,46 +325,30 @@ export class Selector extends TypeScriptComponent {
   }
 
   private _updateInNavGrid () {
-    this._removeFromNavGrid()
+    this._navGridRemover()
+    this._navGridRemover = NoopRemover
 
     const walkableAreasObject = this.gameEngine.findWithTag("walkableAreas")
     if (!walkableAreasObject) return
-    this._navGrid = walkableAreasObject.requireComponent<WalkableAreas>("walkableAreas").navGrid
+    const navGrid = walkableAreasObject.requireComponent<WalkableAreas>("walkableAreas").navGrid
+    const matrix = mat4.clone(this.transform.localToWorldMatrix)
 
-    const tile = this.getComponent<Tile>("tile")
-    if (tile) {
-      this._navGridBounds = Bounds.create()
-      vec3.copy(this._navGridBounds.min, tile.min)
-      vec3.copy(this._navGridBounds.max, tile.max)
-      Bounds.transformMat4(
-        this._navGridBounds,
-        this._navGridBounds,
-        this.transform.localToWorldMatrix,
-      )
-      this._navGrid.insert(this._navGridBounds, this._navGridWalkable = tile.walkable)
-    }
     const fusedModels = this.getComponent<FusedModels>("fusedModels")
     if (fusedModels) {
-      this._navGrid.insertFused(
-        this._navGridEncoded = fusedModels.encoded,
-        this._navGridMatrix = mat4.clone(this.transform.localToWorldMatrix),
-      )
-    }
-  }
+      const encoded = fusedModels.encoded
+      navGrid.insertFused(encoded, matrix)
+      this._navGridRemover = () => navGrid.deleteFused(encoded, matrix)
 
-  private _removeFromNavGrid () {
-    if (!this._navGrid) return
-    if (this._navGridBounds && this._navGridWalkable !== undefined) {
-      this._navGrid.delete(this._navGridBounds, this._navGridWalkable)
-      this._navGridBounds = undefined
-      this._navGridWalkable = undefined
+    } else {
+      const tile = this.getComponent<Tile>("tile")
+      if (tile) {
+        const min = vec3.clone(tile.min)
+        const max = vec3.clone(tile.max)
+        const walkable = tile.walkable
+        navGrid.insertTile(min, max, matrix, walkable)
+        this._navGridRemover = () => navGrid.deleteTile(min, max, matrix, walkable)
+      }
     }
-    if (this._navGridEncoded && this._navGridMatrix) {
-      this._navGrid.deleteFused(this._navGridEncoded, this._navGridMatrix)
-      this._navGridEncoded = undefined
-      this._navGridMatrix = undefined
-    }
-    this._navGrid = undefined
   }
 }
 registerConfigurableType("component", undefined, "selector", Selector)
