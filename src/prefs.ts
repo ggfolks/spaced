@@ -61,6 +61,10 @@ class GeneralPrefs extends PrefsCategory {
         }
       })
     })
+
+    this.getProperty<boolean>("enableShadows").onValue(
+      enable => this.gameEngine.renderEngine.enableShadows.update(enable),
+    )
   }
 }
 registerConfigurableType("prefsCategory", [], "general", GeneralPrefs)

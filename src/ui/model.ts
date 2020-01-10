@@ -1018,11 +1018,7 @@ export function createUIModel (
       },
     },
   }
-
-  prefs.general.getProperty<boolean>("enableShadows").onValue(
-    enable => gameEngine.renderEngine.enableShadows.update(enable),
-  )
-
+  
   return new Model({
     menuBarModel: dataModel({
       space: {
