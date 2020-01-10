@@ -15,6 +15,7 @@ class GeneralPrefs extends PrefsCategory {
   @property("boolean", {editable: false}) showStats = false
   @property("boolean", {editable: false}) showEditorObjects = false
   @property("boolean", {editable: false}) showCoords = true
+  @property("boolean", {editable: false}) enableShadows = true
   @property("boolean", {editable: false}) showWalkableAreas = false
 
   get normalizedRoot () :string {
