@@ -23,7 +23,6 @@ import {createPrefsConfig} from "./config"
 import {CameraController, Selector, maybeGetSnapCenter} from "../components"
 import {Preferences} from "../prefs"
 
-export const OUTLINE_LAYER = 1
 export const NONINTERACTIVE_LAYER_FLAG = (1 << 2)
 export const CAMERA_LAYER_FLAG = (1 << 3)
 
@@ -1018,7 +1017,7 @@ export function createUIModel (
       },
     },
   }
-  
+
   return new Model({
     menuBarModel: dataModel({
       space: {

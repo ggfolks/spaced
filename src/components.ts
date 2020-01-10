@@ -23,7 +23,7 @@ import {Keyboard} from "tfw/input/keyboard"
 import {keyEvents} from "tfw/input/react"
 
 import {
-  CAMERA_LAYER_FLAG, EDITOR_HIDE_FLAG, NONINTERACTIVE_LAYER_FLAG, OUTLINE_LAYER,
+  CAMERA_LAYER_FLAG, EDITOR_HIDE_FLAG, NONINTERACTIVE_LAYER_FLAG,
   SpaceEditConfig, activeTree, applyEdit, catalogNodes,
   catalogSelection, pasteFromCatalog, selection,
 } from "./ui/model"
@@ -52,6 +52,9 @@ keyEvents("keydown").onEmit(event => {
 
 const DummyMaterial = new MeshBasicMaterial()
 const EmptyGroup = {start: 0, count: 0}
+
+const OUTLINE_LAYER = 1
+const OUTLINE_LAYER_MASK = (1 << OUTLINE_LAYER)
 
 export class Selector extends TypeScriptComponent {
   readonly groupHovered = Mutable.local(false)
@@ -208,6 +211,7 @@ export class Selector extends TypeScriptComponent {
       node.layers.enable(OUTLINE_LAYER)
       let previousOpacity = 0
       node.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
+        if (camera.layers.mask !== OUTLINE_LAYER_MASK) return
         previousOpacity = material.opacity
         material.opacity = selected ? 0.8 : 0.4
 
@@ -217,7 +221,7 @@ export class Selector extends TypeScriptComponent {
         renderer.renderBufferDirect(camera, null, geometry, DummyMaterial, node, EmptyGroup)
       }
       node.onAfterRender = (renderer, scene, camera, geometry, material, group) => {
-        material.opacity = previousOpacity
+        if (camera.layers.mask === OUTLINE_LAYER_MASK) material.opacity = previousOpacity
       }
     })
     if (++outlineCount === 1) {
