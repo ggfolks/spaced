@@ -63,7 +63,6 @@ const TreeTabsConfig = {
               },
             },
           },
-          style: {halign: "left"},
         },
         model: "rootModel",
         key: "id",
