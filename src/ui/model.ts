@@ -138,13 +138,15 @@ class CatalogNode implements Disposable {
     this.childIds.update(childIds)
   }
 
-  moveChild (id :string, index :number) {
+  moveChild (id :string, index :number) :number {
     const oldIndex = this.childIds.current.indexOf(id)
-    if (oldIndex === index) return
+    if (oldIndex === index) return index + 1
     const childIds = this.childIds.current.slice()
     childIds.splice(oldIndex, 1)
-    childIds.splice(index < oldIndex ? index : index - 1, 0, id)
+    const adjustedIndex = index < oldIndex ? index : index - 1
+    childIds.splice(adjustedIndex, 0, id)
     this.childIds.update(childIds)
+    return adjustedIndex + 1
   }
 
   dispose () {
@@ -1259,19 +1261,20 @@ export function createUIModel (
         rootModel: catalogRoot.createElementsModel(),
         selectedKeys: catalogSelection,
         updateParentOrder: (keys :ModelKey[], parent :ModelKey|undefined, index :number) => {
-          const key = keys[0]
-          const node = catalogNodes.require(key as string)
-          const oldParent = catalogNodes.require(node.parentId)
           const newParent = (parent === undefined)
             ? catalogRoot
             : catalogNodes.require(parent as string)
-          if (oldParent === newParent) {
-            oldParent.moveChild(node.id, index)
-          } else {
-            oldParent.deleteChild(node.id)
-            newParent.insertChild(node.id, index)
-            node.parentId = newParent.id
-            newParent.expanded.update(true)
+          for (const key of keys) {
+            const node = catalogNodes.require(key as string)
+            const oldParent = catalogNodes.require(node.parentId)
+            if (oldParent === newParent) {
+              index = oldParent.moveChild(node.id, index)
+            } else {
+              oldParent.deleteChild(node.id)
+              newParent.insertChild(node.id, index++)
+              node.parentId = newParent.id
+              newParent.expanded.update(true)
+            }
           }
         },
       },
