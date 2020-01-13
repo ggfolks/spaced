@@ -1229,7 +1229,8 @@ export function createUIModel (
         key: Value.constant("objects"),
         rootModel: gameObjectModel(gameEngine.rootIds),
         selectedKeys: selection,
-        updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
+        updateParentOrder: (keys :ModelKey[], parent :ModelKey|undefined, index :number) => {
+          const key = keys[0]
           const gameObject = gameEngine.gameObjects.require(key as string)
           const activePage = gameEngine.activePage.current
           let parentId :string|undefined
@@ -1257,7 +1258,8 @@ export function createUIModel (
         key: Value.constant("catalog"),
         rootModel: catalogRoot.createElementsModel(),
         selectedKeys: catalogSelection,
-        updateParentOrder: (key :ModelKey, parent :ModelKey|undefined, index :number) => {
+        updateParentOrder: (keys :ModelKey[], parent :ModelKey|undefined, index :number) => {
+          const key = keys[0]
           const node = catalogNodes.require(key as string)
           const oldParent = catalogNodes.require(node.parentId)
           const newParent = (parent === undefined)
