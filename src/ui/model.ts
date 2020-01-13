@@ -1232,13 +1232,12 @@ export function createUIModel (
         rootModel: gameObjectModel(gameEngine.rootIds),
         selectedKeys: selection,
         updateParentOrder: (keys :ModelKey[], parent :ModelKey|undefined, index :number) => {
-          const key = keys[0]
-          const gameObject = gameEngine.gameObjects.require(key as string)
-          const activePage = gameEngine.activePage.current
+          const newExpanded = new Set(expanded)
+          const edit :SpaceEditConfig = {}
           let parentId :string|undefined
           let childIds :string[]
-          let newExpanded = new Set(expanded)
           if (parent === undefined) {
+            const activePage = gameEngine.activePage.current
             parentId = (activePage === DEFAULT_PAGE) ? undefined : activePage
             childIds = gameEngine.rootIds.current
           } else {
@@ -1246,13 +1245,14 @@ export function createUIModel (
             childIds = gameEngine.gameObjects.require(parentId).transform.childIds.current
             newExpanded.add(parentId)
           }
-          const edit :PMap<any> = {}
-          if (parentId !== gameObject.transform.parentId) edit.transform = {parentId}
-          childIds = filterGameObjectKeys(childIds)
-          if (childIds.indexOf(key as string) !== index) {
-            edit.order = getNewOrder(childIds, index, getOrder)
+          const orders = getNewOrders(filterGameObjectKeys(childIds), index, getOrder, keys.length)
+          for (let ii = 0; ii < keys.length; ii++) {
+            const id = keys[ii] as string
+            const objectEdit :PMap<any> = edit[id] = {order: orders[ii]}
+            const gameObject = gameEngine.gameObjects.require(id)
+            if (gameObject.transform.parentId !== parentId) objectEdit.transform = {parentId}
           }
-          applyEdit({expanded: newExpanded, edit: {[key]: edit}})
+          applyEdit({expanded: newExpanded, edit})
         },
       },
       catalog: {
@@ -1445,15 +1445,31 @@ const AutomaticObjects :SpaceConfig = {
 }
 
 function getNewOrder (keys :string[], index :number, getOrder :(key :string) => number) :number {
-  if (keys.length === 0) return 0
+  return getNewOrders(keys, index, getOrder, 1)[0]
+}
+
+function getNewOrders (
+  keys :string[],
+  index :number,
+  getOrder :(key :string) => number,
+  count :number,
+) :number[] {
+  if (keys.length === 0) return createOrderRange(0, count)
   switch (index) {
-    case 0:
-      return getOrder(keys[0]) - 1
-    case keys.length:
-      return getOrder(keys[keys.length - 1]) + 1
+    case 0: return createOrderRange(getOrder(keys[0]) - count, count)
+    case keys.length: return createOrderRange(getOrder(keys[keys.length - 1]) + 1, count)
     default:
-      return (getOrder(keys[index - 1]) + getOrder(keys[index])) / 2
+      const after = getOrder(keys[index - 1])
+      const before = getOrder(keys[index])
+      const step = (before - after) / (count + 1)
+      return createOrderRange(after + step, count, step)
   }
+}
+
+function createOrderRange (start :number, count :number, step = 1) :number[] {
+  const orders :number[] = []
+  for (let ii = 0; ii < count; ii++) orders.push(start + ii * step)
+  return orders
 }
 
 function setIdSet (set :MutableSet<string>, newSet :ReadonlySet<string>) {
