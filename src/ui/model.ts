@@ -12,7 +12,7 @@ import {
 import {Model as RenderModel, FusedModels} from "tfw/engine/render"
 import {NON_TILE_FLAG, WALKABLE_FLAG, FusedEncoder, JavaScript, decodeFused} from "tfw/engine/util"
 import {MOUSE_ID} from "tfw/input/hand"
-import {getCurrentEditNumber} from "tfw/ui/element"
+import {getCurrentEditNumber} from "tfw/input/interact"
 import {
   Action, Command, Model, ModelData, ModelKey, ElementsModel, dataModel, makeModel, mapModel,
 } from "tfw/ui/model"

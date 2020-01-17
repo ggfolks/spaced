@@ -7,6 +7,7 @@ import {ResourceLoader} from "tfw/asset/loader"
 import {TypeScriptGameEngine} from "tfw/engine/typescript/game"
 import {ThreeRenderEngine} from "tfw/engine/typescript/three/render"
 import {CannonPhysicsEngine} from "tfw/engine/typescript/cannon/physics"
+import {InteractionManager} from "tfw/input/interact"
 import {HTMLHost} from "tfw/ui/element"
 import {UI} from "tfw/ui/ui"
 
@@ -23,9 +24,11 @@ const rootSize = windowSize(window)
 const disposer = new Disposer()
 document.body.addEventListener("unload", () => disposer.dispose())
 
+const interact = new InteractionManager()
+
 const loader = ResourceLoader.fetchLoader(ResourceLoader.getDefaultBaseUrl())
 const gameBounds = Mutable.local(rect.create())
-const gameEngine = new TypeScriptGameEngine(root, gameBounds, loader)
+const gameEngine = new TypeScriptGameEngine(root, interact, gameBounds, loader)
 disposer.add(gameEngine)
 disposer.add(new ThreeRenderEngine(gameEngine))
 disposer.add(new CannonPhysicsEngine(gameEngine))
@@ -37,7 +40,7 @@ const uiRoot = ui.createRoot(
   createUIConfig(rootSize),
   createUIModel(rootSize, gameEngine, prefs, ui),
 )
-const host = new HTMLHost(root, false)
+const host = new HTMLHost(root, interact, false)
 host.addRoot(uiRoot)
 
 const canvas = uiRoot.findTaggedChild("canvas")!
