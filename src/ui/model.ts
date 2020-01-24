@@ -1,4 +1,3 @@
-import {Color} from "tfw/core/color"
 import {refEquals} from "tfw/core/data"
 import {Bounds, dim2, mat4, quat, quatIdentity, vec2, vec3} from "tfw/core/math"
 import {Emitter, Mutable, Value} from "tfw/core/react"
@@ -1423,9 +1422,9 @@ const EditorObjects :SpaceConfig = {
       materialConfig: {
         type: "basic",
         side: "double",
-        color: Color.fromRGB(0, 1, 0),
         transparent: true,
         opacity: 0.5,
+        vertexColors: true,
       },
     },
     walkableAreas: {},

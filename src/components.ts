@@ -708,11 +708,17 @@ export class WalkableAreas extends TypeScriptComponent {
   update () {
     if (this._geometryValid || !this.gameObject.layerFlags) return
     const vertices = new Float32Array(this.navGrid.walkableCellCount * 4 * 3)
+    const colors = new Float32Array(vertices.length)
     const triangles = new Uint32Array(this.navGrid.walkableCellCount * 2 * 3)
     let vidx = 0, tidx = 0
     let vertexCount = 0
     this.navGrid.visitWalkableCells(occupancy => {
+      const standable = this.navGrid.isCellStandable(occupancy.x, occupancy.y, occupancy.z)
       for (let ii = 0; ii < 4; ii++) {
+        colors[vidx] = 0.0
+        colors[vidx + 1] = standable ? 1.0 : 0.5
+        colors[vidx + 2] = 0.0
+
         vertices[vidx++] = occupancy.x * 0.5 + (ii & 1 ? 0.5 : 0)
         vertices[vidx++] = occupancy.y + 0.5
         vertices[vidx++] = occupancy.z * 0.5 + (ii & 2 ? 0.5 : 0)
@@ -722,6 +728,7 @@ export class WalkableAreas extends TypeScriptComponent {
     })
     const geometry = this.requireComponent<MeshFilter>("meshFilter").mesh as ExplicitGeometry
     geometry.vertices = vertices
+    geometry.colors = colors
     geometry.triangles = triangles
     this._geometryValid = true
   }
