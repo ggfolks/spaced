@@ -80,6 +80,7 @@ export class Selector extends TypeScriptComponent {
             tile.getProperty("min"),
             tile.getProperty("max"),
             tile.getProperty("walkable"),
+            tile.getProperty("blocking"),
           )
         }
         if (fusedModels) properties.push(fusedModels.getProperty("encoded"))
@@ -349,8 +350,9 @@ export class Selector extends TypeScriptComponent {
         const min = vec3.clone(tile.min)
         const max = vec3.clone(tile.max)
         const walkable = tile.walkable
-        navGrid.insertTile(min, max, matrix, walkable)
-        this._navGridRemover = () => navGrid.deleteTile(min, max, matrix, walkable)
+        const blocking = tile.blocking
+        navGrid.insertTile(min, max, matrix, walkable, blocking)
+        this._navGridRemover = () => navGrid.deleteTile(min, max, matrix, walkable, blocking)
       }
     }
   }
