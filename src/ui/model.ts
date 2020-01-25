@@ -310,7 +310,17 @@ export function createUIModel (
           models.set(key, model = new Model({
             id: Value.constant(key),
             name: createPropertyValue("name"),
-            hasChildren: gameObject.transform.childIds.map(childIds => childIds.length > 0),
+            hasChildren: Value.join2(gameObject.transform.childIds, showEditorObjects).map(
+              ([childIds, showEditorObjects]) => {
+                if (showEditorObjects) return childIds.length > 0
+                for (const childId of childIds) {
+                  if (!(gameEngine.gameObjects.require(childId).hideFlags & EDITOR_HIDE_FLAG)) {
+                    return true
+                  }
+                }
+                return false
+              },
+            ),
             childModel: gameObjectModel(gameObject.transform.childIds),
             expanded: expanded.hasValue(key as string),
             toggleExpanded: () => {
@@ -1378,6 +1388,28 @@ export function createUIModel (
   })
 }
 
+const GRID_VERTEX_SHADER = `
+  varying vec4 worldPosition;
+  void main(void) {
+    worldPosition = modelMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+
+const GRID_FRAGMENT_SHADER = `
+  varying vec4 worldPosition;
+  void main(void) {
+    vec4 modPosition = mod(worldPosition.xzxz - vec4(0.5), vec4(vec2(1.0), vec2(0.25)));
+    vec4 lowerSteps = step(vec4(vec2(0.02), vec2(0.005)), modPosition);
+    vec4 upperSteps = vec4(1.0) - step(vec4(vec2(0.98), vec2(0.245)), modPosition);
+    float outside = lowerSteps.x * lowerSteps.y * lowerSteps.z * lowerSteps.w *
+      upperSteps.x * upperSteps.y * upperSteps.z * upperSteps.w;
+    if (outside > 0.5) discard;
+    float scale = 0.25 * exp(-0.1 * distance(worldPosition.xz, cameraPosition.xz));
+    gl_FragColor = vec4(scale, scale, scale, 1.0);
+  }
+`
+
 const EditorObjects :SpaceConfig = {
   editorCamera: {
     layerFlags: CAMERA_LAYER_FLAG,
@@ -1405,8 +1437,8 @@ const EditorObjects :SpaceConfig = {
       materialConfig: {
         type: "shader",
         side: "both",
-        vertexShaderGraphConfig: {},
-        fragmentShaderGraphConfig: {},
+        vertexShader: GRID_VERTEX_SHADER,
+        fragmentShader: GRID_FRAGMENT_SHADER,
       },
     },
   },
