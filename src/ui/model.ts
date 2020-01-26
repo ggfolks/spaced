@@ -212,16 +212,16 @@ export function createUIModel (
     gameEngine.disposeGameObjects()
     gameEngine.createGameObjects(EditorObjects)
   }
-  const createNewSpace = () => {
-    path.update("")
-    resetModel()
-    gameEngine.createGameObjects(AutomaticObjects)
-  }
-  createNewSpace()
   const addSelectors = (config: SpaceConfig) => {
     for (const id in config) config[id].selector = {hideFlags: EDITOR_HIDE_FLAG}
     return config
   }
+  const createNewSpace = () => {
+    path.update("")
+    resetModel()
+    gameEngine.createGameObjects(addSelectors(AutomaticObjects))
+  }
+  createNewSpace()
   const loadConfig = (config :SpaceConfig) => {
     resetModel()
     gameEngine.createGameObjects(addSelectors(config), true)
@@ -1410,6 +1410,65 @@ const GRID_FRAGMENT_SHADER = `
   }
 `
 
+const AXIS_DIVISIONS = 8
+const AXIS_VERTICES_LENGTH = 3 * AXIS_DIVISIONS * 2 * 3
+const AxesMeshConfig = {
+  type: "explicitGeometry",
+  vertices: new Float32Array(AXIS_VERTICES_LENGTH),
+  colors: new Float32Array(AXIS_VERTICES_LENGTH),
+  triangles: new Uint16Array(AXIS_VERTICES_LENGTH + 3 * 2 * (AXIS_DIVISIONS - 2) * 3),
+}
+{
+  let vidx = 0, tidx = 0, vertexCount = 0
+  const vertex = vec3.create()
+  for (let ii = 0; ii < 3; ii++) {
+    const color = new Float32Array(3)
+    color[ii] = 1
+    const axisStart = vertexCount
+    for (let jj = 0; jj < AXIS_DIVISIONS; jj++) {
+      const angle = jj * Math.PI * 2 / AXIS_DIVISIONS
+
+      vertex[ii] = 0
+      vertex[(ii + 1) % 3] = 0.02 * Math.cos(angle)
+      vertex[(ii + 2) % 3] = -0.02 * Math.sin(angle)
+
+      AxesMeshConfig.colors.set(color, vidx)
+      AxesMeshConfig.vertices.set(vertex, vidx)
+      vidx += 3
+
+      vertex[ii] = 0.5
+
+      AxesMeshConfig.colors.set(color, vidx)
+      AxesMeshConfig.vertices.set(vertex, vidx)
+      vidx += 3
+
+      const nextIdx = (jj === AXIS_DIVISIONS - 1) ? axisStart : vertexCount + 2
+
+      AxesMeshConfig.triangles[tidx++] = vertexCount
+      AxesMeshConfig.triangles[tidx++] = vertexCount + 1
+      AxesMeshConfig.triangles[tidx++] = nextIdx + 1
+
+      AxesMeshConfig.triangles[tidx++] = vertexCount
+      AxesMeshConfig.triangles[tidx++] = nextIdx + 1
+      AxesMeshConfig.triangles[tidx++] = nextIdx
+
+      vertexCount += 2
+    }
+
+    for (let kk = 1; kk < AXIS_DIVISIONS - 1; kk++) {
+      AxesMeshConfig.triangles[tidx++] = axisStart
+      AxesMeshConfig.triangles[tidx++] = axisStart + kk * 2
+      AxesMeshConfig.triangles[tidx++] = axisStart + (kk + 1) * 2
+    }
+
+    for (let kk = 1; kk < AXIS_DIVISIONS - 1; kk++) {
+      AxesMeshConfig.triangles[tidx++] = axisStart + 1
+      AxesMeshConfig.triangles[tidx++] = axisStart + 1 + (kk + 1) * 2
+      AxesMeshConfig.triangles[tidx++] = axisStart + 1 + kk * 2
+    }
+  }
+}
+
 const EditorObjects :SpaceConfig = {
   editorCamera: {
     layerFlags: CAMERA_LAYER_FLAG,
@@ -1460,6 +1519,17 @@ const EditorObjects :SpaceConfig = {
       },
     },
     walkableAreas: {},
+  },
+  editorAxes: {
+    tag: "axes",
+    order: 3,
+    layerFlags: NONINTERACTIVE_LAYER_FLAG,
+    hideFlags: EDITOR_HIDE_FLAG,
+    meshFilter: {meshConfig: AxesMeshConfig},
+    meshRenderer: {
+      materialConfig: {type: "basic", vertexColors: true},
+    },
+    axes: {},
   },
 }
 

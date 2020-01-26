@@ -736,3 +736,22 @@ export class WalkableAreas extends TypeScriptComponent {
   }
 }
 registerConfigurableType("component", undefined, "walkableAreas", WalkableAreas)
+
+export class Axes extends TypeScriptComponent {
+
+  init () {
+    super.init()
+    this._disposer.add(selection.onValue(selection => {
+      this.gameObject.layerFlags = selection.size > 0 ? NONINTERACTIVE_LAYER_FLAG : 0
+    }))
+  }
+
+  update () {
+    if (selection.size === 0) return
+    const gameObject = this.gameEngine.gameObjects.require(selection.values().next().value)
+    vec3.copy(this.transform.localPosition, gameObject.transform.position)
+    quat.copy(this.transform.localRotation, gameObject.transform.rotation)
+    vec3.copy(this.transform.localScale, gameObject.transform.lossyScale)
+  }
+}
+registerConfigurableType("component", undefined, "axes", Axes)
