@@ -11,8 +11,7 @@ import {
 import {Mutable, Value} from "tfw/core/react"
 import {Noop, NoopRemover, PMap, Remover} from "tfw/core/util"
 import {
-  DEFAULT_LAYER_FLAG, DefaultTileBounds, ExplicitGeometry,
-  GameEngine, GameObject, Hover, MeshFilter, Tile, Transform,
+  DefaultTileBounds, ExplicitGeometry, GameEngine, GameObject, Hover, MeshFilter, Tile, Transform,
 } from "tfw/engine/game"
 import {property} from "tfw/engine/meta"
 import {Camera, FusedModels} from "tfw/engine/render"
@@ -468,7 +467,7 @@ export class CameraController extends TypeScriptComponent {
         .onValue(([[alt, control, shift], activeTree]) => {
           this.requireComponent<Camera>("camera").eventMask =
             CAMERA_LAYER_FLAG |
-            (alt || control && shift || activeTree === "catalog" ? 0 : DEFAULT_LAYER_FLAG)
+            (alt || control && shift || activeTree === "catalog" ? 0 : ~NONINTERACTIVE_LAYER_FLAG)
         }),
     )
   }

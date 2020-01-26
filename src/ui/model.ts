@@ -1,3 +1,4 @@
+import {Color} from "tfw/core/color"
 import {refEquals} from "tfw/core/data"
 import {Bounds, dim2, mat4, quat, quatIdentity, vec2, vec3} from "tfw/core/math"
 import {Emitter, Mutable, Value} from "tfw/core/react"
@@ -5,7 +6,7 @@ import {MutableMap, MutableSet, RMap} from "tfw/core/rcollect"
 import {Disposable, Disposer, Noop, PMap, getValue} from "tfw/core/util"
 import {CategoryNode} from "tfw/graph/node"
 import {
-  ALL_HIDE_FLAGS_MASK, DEFAULT_PAGE, NO_HIDE_FLAGS_MASK,
+  ALL_HIDE_FLAGS_MASK, DEFAULT_PAGE, EDITOR_LAYER_FLAG, NO_HIDE_FLAGS_MASK,
   DefaultTileBounds, GameEngine, GameObject, GameObjectConfig, SpaceConfig, Tile,
 } from "tfw/engine/game"
 import {Model as RenderModel, FusedModels} from "tfw/engine/render"
@@ -1128,6 +1129,24 @@ export function createUIModel (
           light: {
             name: Value.constant("Light"),
             action: () => createObject("light", {light: {}}),
+          },
+          spawnPoint: {
+            name: Value.constant("Spawn Point"),
+            action: () => createObject("spawnPoint", {
+              layerFlags: EDITOR_LAYER_FLAG,
+              spawnPoint: {},
+              meshFilter: {
+                meshConfig: {type: "indicator"},
+              },
+              meshRenderer: {
+                materialConfig: {type: "basic", color: Color.fromRGB(1, 0, 1)},
+              },
+              tile: {
+                min: vec3.fromValues(-0.25, 0, -0.25),
+                max: vec3.fromValues(0.25, 1, 0.25),
+                walkable: true,
+              },
+            }),
           },
           model: {
             name: Value.constant("Model"),
