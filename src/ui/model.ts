@@ -569,6 +569,61 @@ export function createUIModel (
     open(URL.createObjectURL(file), "_self")
     // TODO: call revokeObjectURL when finished with download
   }
+  const jsonify = (value :any) => {
+    if (typeof value !== "object" || value === null) return value
+    switch (value.constructor) {
+      case Float32Array:
+      case Uint16Array:
+      case Uint32Array:
+      case Array:
+      case Color:
+        const array :any[] = []
+        for (let ii = 0; ii < value.length; ii++) array.push(jsonify(value[ii]))
+        return array
+
+      case Uint8Array:
+        const tiles :any[] = []
+        const addTiles = (source :Uint8Array, parentMatrix :mat4) => {
+          decodeFused(source, {
+            visitTile: (url, bounds, position, rotation, scale, flags) => {
+              const matrix = mat4.create()
+              mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
+              mat4.multiply(matrix, parentMatrix, matrix)
+              tiles.push(jsonify({
+                url,
+                bounds,
+                position: mat4.getTranslation(vec3.create(), matrix),
+                rotation: mat4.getRotation(quat.create(), matrix),
+                scale: mat4.getScaling(vec3.create(), matrix),
+                flags,
+              }))
+            },
+            visitFusedTiles: (source, position, rotation, scale) => {
+              const matrix = mat4.create()
+              mat4.fromRotationTranslationScale(matrix, rotation, position, scale)
+              mat4.multiply(matrix, parentMatrix, matrix)
+              addTiles(source, matrix)
+            },
+          })
+        }
+        addTiles(value, mat4.create())
+        return tiles
+
+      default:
+        const json :PMap<any> = {}
+        for (const key in value) json[key] = jsonify(value[key])
+        return json
+    }
+  }
+  let exportConfigAsJson = (config :SpaceConfig) => {
+    const file = new File(
+      [JSON.stringify(jsonify(config))],
+      "untitled.space.json",
+      {type: "application/json"},
+    )
+    open(URL.createObjectURL(file), "_self")
+    // TODO: call revokeObjectURL when finished with download
+  }
 
   activeTree.onChange(activeTree => {
     if (activeTree === "objects") catalogSelection.clear()
@@ -617,6 +672,26 @@ export function createUIModel (
         },
       )
       if (result.filePath) writeTo(config, lastPath = result.filePath)
+    }
+    exportConfigAsJson = async config => {
+      const result = await electron.dialog.showSaveDialog(
+        electron.getCurrentWindow(),
+        {
+          title: "Export as JSON",
+          defaultPath: prefs.general.normalizedRoot + "export.space.json",
+          buttonLabel: "Export",
+          properties: ["openFile", "promptToCreate"],
+          filters: [
+            {name: "JSON Spaces", extensions: ["space.json"]},
+            {name: "All Files", extensions: ["*"]},
+          ],
+        },
+      )
+      if (result.filePath) {
+        fs.writeFile(result.filePath, JSON.stringify(jsonify(config)), (error? :Error) => {
+          if (error) console.warn(error)
+        })
+      }
     }
     const save = () => {
       saveTo(path.current)
@@ -1050,6 +1125,10 @@ export function createUIModel (
           export: {
             name: Value.constant("Export..."),
             action: () => exportConfig(gameEngine.createConfig()),
+          },
+          exportAsJson: {
+            name: Value.constant("Export as JSON..."),
+            action: () => exportConfigAsJson(gameEngine.createConfig()),
           },
           ...quitModel,
         }),
