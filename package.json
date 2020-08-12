@@ -42,7 +42,7 @@
   "dependencies": {
     "@tfwdev/platform": "^0.2.0-snapshot",
     "module-alias": "^2.2.2",
-    "serialize-javascript": "^2.1.1"
+    "serialize-javascript": "^3.1.0"
   },
   "devDependencies": {
     "awesome-typescript-loader": "^5.2.0",
