@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "awesome-typescript-loader": "^5.2.0",
-    "electron": "^11.5.0",
+    "electron": "^13.6.6",
     "electron-builder": "^22.1.0",
     "lodash": "^4.17.13",
     "ts-jest": "^24.0.0",
